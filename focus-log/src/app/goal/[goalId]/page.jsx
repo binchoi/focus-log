@@ -162,6 +162,12 @@ export default function GoalPage({ params }) {
           Back to Goals
         </button>
       </div>
+      {isAnotherTimerActive && (
+        <p className="warning-message">
+          Another focus task is already running. Please stop it before starting a new one.
+        </p>
+      )}
+
 
       {/* Modal */}
       {isModalOpen && (
