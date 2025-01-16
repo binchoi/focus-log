@@ -1,42 +1,367 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import url('https://fonts.googleapis.com/css2?family=Helvetica:wght@400;700&display=swap');
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-html,
+/* Global Styles */
 body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
+  font-family: Helvetica, Arial, sans-serif;
   margin: 0;
+  padding: 0;
+  background-color: #f9f9f9;
 }
 
 a {
-  color: inherit;
-  text-decoration: none;
+  color: black; /* Set link color to black */
+  text-decoration: none; /* Remove underline */
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+a:visited {
+  color: black; /* Ensure visited links remain black */
+}
+
+a:hover {
+  color: #555; /* Optional: Add a subtle hover effect */
+}
+
+a:active {
+  color: black; /* Ensure active links remain black */
+}
+
+.homepage-container {
+  display: flex;
+  flex-direction: column; /* Stack elements vertically */
+  justify-content: center; /* Center content vertically */
+  align-items: center; /* Center content horizontally */
+  min-height: 100vh; /* Full viewport height */
+}
+
+/* Header Styles */
+header {
+  margin-bottom: 20px; /* Add space below the header */
+}
+
+.app-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Grid and Card Layout */
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  justify-content: center; /* Center grid items horizontally */
+}
+
+.goal-card {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  text-align: center;
+}
+
+.goal-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0px 6px 10px rgba(0, 0, 0, 0.15);
+}
+
+.goal-content {
+  padding: 20px;
+}
+
+.goal-content h2 {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.goal-content p {
+  color: #888888;
+}
+
+/* Goal Page Container */
+.goal-page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f9f9f9;
+}
+
+/* Header */
+.goal-title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+/* Timer Display */
+.timer-display {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 30px;
+}
+
+/* Buttons */
+.button-group {
+  display: flex;
+  gap: 15px;
+}
+
+.btn {
+  padding: 10px 20px;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 5px;
+  border: none;
+}
+
+.start-btn {
+  background-color: #4caf50; /* Green */
+  color: white;
+}
+
+.start-btn:hover {
+  background-color: #45a049;
+}
+
+.stop-btn {
+  background-color: #f44336; /* Red */
+  color: white;
+}
+
+.stop-btn:hover {
+  background-color: #e53935;
+}
+
+.back-btn {
+  background-color: #555; /* Gray */
+  color: white;
+}
+
+.back-btn:hover {
+  background-color: #444;
+}
+
+/* Disabled Button State */
+.btn[disabled] {
+  opacity: 0.6;
+}
+
+/* Highlight for Active Goal */
+.active-goal {
+  border: 2px solid #4caf50; /* Green border */
+  background-color: #e8f5e9; /* Light green background */
+  box-shadow: 0px 4px 8px rgba(0, 128, 0, 0.2); /* Subtle shadow */
+}
+
+.active-goal h2 {
+  color: #388e3c; /* Darker green for text */
+}
+
+.active-goal p {
+  color: #2e7d32; /* Slightly darker green for duration */
+}
+
+
+/* Credentials Page Container */
+.credentials-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f9f9f9;
+  padding: 20px;
+}
+
+/* Header Styles */
+.credentials-title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.credentials-description {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+/* Form Styles */
+.credentials-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Input Fields */
+.input-field,
+.textarea-field {
+  width: 100%;
+  padding: 10px;
+  font-size: 1rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.textarea-field {
+  height: 100px; /* Larger height for textarea */
+}
+
+.input-field:focus,
+.textarea-field:focus {
+  outline: none;
+  border-color: #4caf50; /* Green border on focus */
+}
+
+/* Button Styles */
+.btn {
+  padding: 10px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
+  border-radius: 5px;
+}
+
+.save-btn {
+  background-color: #4caf50; /* Green button */
+}
+
+.save-btn:hover {
+  background-color: #45a049; /* Slightly darker green on hover */
+}
+
+/* Modal Styles */
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Modal Box */
+.modal {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  width: calc(100% - 40px);
+  max-width: 400px;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 4px 10px;
+}
+
+.modal h2 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+
+.modal p {
+  font-size: 1rem;
+}
+
+.modal-divider {
+  border: none;
+  border-top: 1px solid #e0e0e0; /* Subtle gray divider */
+  margin: 20px auto;
+}
+
+/* Modal Buttons */
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+}
+
+.modal-buttons .btn {
+  padding: 10px;
+}
+
+.log-btn {
+  background-color: #4caf50; /* Green for logging */
+}
+
+.log-btn:hover {
+  background-color: #45a049; /* Darker green on hover */
+}
+
+.discard-btn {
+  background-color: #f44336; /* Red for discard */
+}
+
+.discard-btn:hover {
+  background-color: #e53935; /* Darker red on hover */
+}
+
+/* Adjust Section */
+.adjust-section {
+  margin-top: 20px;
+}
+
+.adjust-section p {
+  font-size: 1rem;
+}
+
+/* Adjust Controls */
+.adjust-controls {
+  display: flex;
+  gap: 10px; /* Add spacing between input and button */
+  align-items: center; /* Align input and button vertically */
+  width: 100%; /* Ensure full width of the modal */
+}
+
+/* Adjust Input Field */
+.adjust-input {
+  flex-grow: 1; /* Allow input to take up remaining space */
+  padding: 8px;
+  font-size: 1rem;
+  border-radius: 5px;
+  border: solid #ccc thin;
+}
+
+/* Adjust Button */
+.adjust-save-btn {
+  padding: 8px 16px;
+  font-size: 1rem;
+  font-weight: bold;
+  background-color: #4caf50; /* Green button */
+  color: white;
+  border: none;
+  border-radius: 5px;
+}
+
+.adjust-save-btn:hover {
+  background-color: #45a049; /* Darker green on hover */
+}
+
+
+/* Tooltip Bubble */
+.tooltip-bubble {
+  position: absolute;
+  top: -35px; /* Position above the input */
+  left: 10px; /* Slightly offset from the left */
+  background-color: #f44336; /* Red background for error */
+  color: white; /* White text */
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+/* Input Container (for Tooltip Positioning) */
+.input-container {
+  position: relative; /* Allows tooltip to position relative to this container */
+}
+
+/* Input Error Styling */
+.input-error {
+  border-color: #f44336; /* Red border for invalid input */
 }
