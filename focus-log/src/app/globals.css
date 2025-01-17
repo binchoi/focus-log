@@ -1,5 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Helvetica:wght@400;700&display=swap');
 
+/* Ensure Box Sizing Includes Padding and Border */
+*,
+*::before,
+*::after {
+  box-sizing: border-box; /* Includes padding and border in element's width/height */
+}
+
 /* Global Styles */
 body {
   font-family: Helvetica, Arial, sans-serif;
@@ -93,6 +100,7 @@ header {
   font-size: 2rem;
   font-weight: bold;
   margin-bottom: 20px;
+  text-align: center;
 }
 
 /* Timer Display */
@@ -189,20 +197,37 @@ header {
   margin-bottom: 30px;
   text-align: center;
 }
-
 /* Form Styles */
 .credentials-form {
   display: flex;
   flex-direction: column;
   gap: 15px;
   width: 100%;
-  max-width: 400px;
+  max-width: 400px; /* Ensures form doesn't exceed this width */
+  margin: 0 auto; /* Center form horizontally */
+}
+
+/* File Upload Styles */
+.file-upload-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  color: #ccc; /* Green text */
+  cursor: pointer;
+}
+
+.file-upload-input {
+  display: none; /* Hide the default file input */
+}
+
+.file-upload-label:hover {
+  text-decoration: underline; /* Underline on hover for better UX */
 }
 
 /* Input Fields */
 .input-field,
 .textarea-field {
-  width: 100%;
+  width: 100%; /* Take full width of the parent container */
   padding: 10px;
   font-size: 1rem;
   border-radius: 5px;
@@ -235,6 +260,7 @@ header {
 .save-btn:hover {
   background-color: #45a049; /* Slightly darker green on hover */
 }
+
 
 /* Modal Styles */
 /* Modal Overlay */
@@ -332,14 +358,14 @@ header {
   padding: 8px 16px;
   font-size: 1rem;
   font-weight: bold;
-  background-color: #4caf50; /* Green button */
+  background-color: #a7d4a8; /* Green button */
   color: white;
   border: none;
   border-radius: 5px;
 }
 
 .adjust-save-btn:hover {
-  background-color: #45a049; /* Darker green on hover */
+  background-color: #8bd28d; /* Darker green on hover */
 }
 
 
