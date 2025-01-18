@@ -1,6 +1,6 @@
 # Log Your Focus
 
-Inspired by the concept of 'Focus Logs' introduced in [Ali Abdaal's YouTube video](https://youtu.be/W2afI0n8pUk?si=H0lipwA2McRDeNSI&t=779), I created this project to help track my focus sessions and make consistent progress toward my 2025 goals.
+Inspired by the concept of 'Focus Logs' introduced in Ali Abdaal's YouTube [video](https://youtu.be/W2afI0n8pUk?si=H0lipwA2McRDeNSI&t=779), I created this project to help track my focus sessions and make consistent progress toward my 2025 goals.
 
 ## Motivation
 
