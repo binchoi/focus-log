@@ -391,3 +391,53 @@ header {
 .input-error {
   border-color: #f44336; /* Red border for invalid input */
 }
+
+/* Global CSS addition for chart styling */
+.chart-container {
+  padding: 10px;
+}
+
+.chart-wrapper {
+  width: 100%;
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 20px;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.chart-title {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+}
+
+/* Updated Navbar Styles for a minimal, non-intrusive look */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* Use a background that nearly matches the page background but with slight translucency */
+  background-color: rgba(249, 249, 249, 0.8);
+  /* Remove a heavy drop shadow; use a very subtle border to separate from main content */
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 8px 20px; /* Provide some horizontal padding so it isn't stuck to screen edges */
+  z-index: 1000;
+  text-align: left;
+  font-family: Helvetica, Arial, sans-serif;
+}
+
+.navbar a {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #333; /* Use a dark gray instead of pure black */
+  text-decoration: none;
+}
+
+/* Optional: remove default hover effects if needed */
+.navbar a:hover {
+  color: #333;
+  text-decoration: none;
+}

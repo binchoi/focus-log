@@ -95,7 +95,6 @@ export async function appendLog(g_id, start, end) {
     const formattedStart = formatDateTime(start);
     const formattedEnd = formatDateTime(end);
 
-    console.log(formattedStart);
   
     try {
       await axios.post(
@@ -112,7 +111,7 @@ export async function appendLog(g_id, start, end) {
           },
         }
       );
-      console.log("Log appended successfully");
+
     } catch (error) {
       console.error("Error appending log:", error.response?.data || error.message);
       throw new Error("Failed to append log to Google Sheets");
@@ -232,7 +231,6 @@ export async function fetchLogs() {
         g_id: row[2] ? parseInt(row[2]) : null, // Goal ID as integer
         duration: row[3] ? parseFloat(row[3]) : 0, // Duration as float (default to 0 if missing)
         }));
-        console.log("Logs fetched successfully", logs);
 
         return logs;
     } catch (error) {

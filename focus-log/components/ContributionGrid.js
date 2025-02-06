@@ -14,7 +14,7 @@ export default function ContributionGrid({ goalId }) {
     async function loadLogs() {
       try {
         const allLogs = await fetchLogs(); // Fetch raw logs
-        // Assume goalId is numeric; adjust this conversion as needed.
+        // Assume goalId is numeric; adjust conversion if needed.
         const goalLogs = allLogs.filter((log) => log.g_id === parseInt(goalId));
 
         // Transform logs into daily contributions for the grid.
@@ -31,7 +31,6 @@ export default function ContributionGrid({ goalId }) {
         const transformedLogs = Object.entries(contributions).map(
           ([date, count]) => ({ date, count })
         );
-
         setLogs(transformedLogs);
       } catch (error) {
         console.error("Error loading logs:", error);
@@ -39,13 +38,11 @@ export default function ContributionGrid({ goalId }) {
         setLoading(false);
       }
     }
-
     loadLogs();
   }, [goalId]);
 
   useEffect(() => {
-    if (!logs || logs.length === 0) return;
-
+    // Render the grid regardless of whether logs is empty
     // Increase cell size and adjust dimensions for improved readability/responsiveness
     const cellSize = 30; // new cell size
     const gap = 4;       // increased gap between cells
@@ -69,9 +66,7 @@ export default function ContributionGrid({ goalId }) {
     // Generate all dates in the current quarter using d3's timeDays
     const allDates = d3.timeDays(quarterStart, d3.timeDay.offset(quarterEnd, 1));
     // Create a Map where keys are date strings ("yyyy-MM-dd") and values are focus session counts
-    const dataMap = new Map(
-      logs.map((d) => [d.date, d.count])
-    );
+    const dataMap = new Map(logs.map((d) => [d.date, d.count]));
 
     // Create a color scale using GitHub-like colors (for 0–4+ sessions)
     const colorScale = d3.scaleThreshold()
@@ -99,15 +94,14 @@ export default function ContributionGrid({ goalId }) {
       .enter()
       .append("rect")
       .attr("class", "day")
-      // Calculate x: group cells by week; y: day-of-week (0=Sunday)
+      // Arrange cells in columns (weeks) and rows (day-of-week)
       .attr("x", (d, i) => Math.floor(i / 7) * (cellSize + gap) + margin.left)
       .attr("y", (d, i) => (i % 7) * (cellSize + gap) + margin.top)
       .attr("width", cellSize)
       .attr("height", cellSize)
       .attr("fill", (d) => {
-        // For future dates use a light gray
-        if (d > today) return "#f0f0f0";
-        // Use local-format date key (yyyy-MM-dd) for consistency with logs produced by date-fns.
+        if (d > today) return "#f0f0f0"; // Future dates light gray
+        // Use local-format date key (yyyy-MM-dd) for consistency with logs
         const key = format(d, "yyyy-MM-dd");
         const count = dataMap.get(key) || 0;
         return colorScale(count);
@@ -130,7 +124,7 @@ export default function ContributionGrid({ goalId }) {
         d3.select(this).style("stroke", "none");
       });
 
-    // Clean up the tooltip when done
+    // Clean up the tooltip on unmount
     return () => tooltip.remove();
   }, [logs]);
 

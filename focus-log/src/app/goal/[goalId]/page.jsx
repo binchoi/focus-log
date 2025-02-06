@@ -4,6 +4,9 @@ import React, { useEffect, useState } from "react";
 import { appendLog, getTitleByGid } from "../../../../utils/googleSheetsApi";
 import { useRouter } from "next/navigation";
 
+import Navbar from "../../../../components/Navbar";
+
+
 export default function GoalPage({ params }) {
   const router = useRouter();
   const { goalId } = React.use(params);
@@ -138,6 +141,7 @@ export default function GoalPage({ params }) {
 
   return (
     <div className="goal-page-container">
+      <Navbar />
       <header>
         <h1 className="goal-title">{title}</h1>
       </header>
