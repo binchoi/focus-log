@@ -197,3 +197,46 @@ function str2ab(pem) {
   );
   return binaryDer.buffer;
 }
+
+// Function to format datetime strings into JavaScript Date objects
+function parseDateTime(dateTimeString) {
+    return new Date(dateTimeString);
+  }
+  
+// Function to fetch logs from Google Sheets for visualization
+export async function fetchLogs() {
+    const credentials = JSON.parse(localStorage.getItem("credentials"));
+    const accessToken = await getAccessToken(credentials);
+
+    try {
+        // Fetch logs data from Google Sheets
+        const response = await axios.get(
+        `https://sheets.googleapis.com/v4/spreadsheets/${credentials.spreadsheetId}/values/logs!A:D`,
+        {
+            headers: {
+            Authorization: `Bearer ${accessToken}`,
+            },
+        }
+        );
+
+        const rows = response.data.values || []; // Get the rows of data
+        if (rows.length === 0) {
+        console.warn("No logs found in the spreadsheet.");
+        return [];
+        }
+
+        // Process the logs into a usable format
+        const logs = rows.slice(1).map((row) => ({
+        start_datetime: parseDateTime(row[0]), // Convert start datetime to Date object
+        end_datetime: parseDateTime(row[1]),   // Convert end datetime to Date object
+        g_id: row[2] ? parseInt(row[2]) : null, // Goal ID as integer
+        duration: row[3] ? parseFloat(row[3]) : 0, // Duration as float (default to 0 if missing)
+        }));
+        console.log("Logs fetched successfully", logs);
+
+        return logs;
+    } catch (error) {
+        console.error("Error fetching logs:", error.response?.data || error.message);
+        throw new Error("Failed to fetch logs from Google Sheets");
+    }
+}

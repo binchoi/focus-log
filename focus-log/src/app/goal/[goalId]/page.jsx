@@ -163,7 +163,7 @@ export default function GoalPage({ params }) {
         </button>
       </div>
       {isAnotherTimerActive && (
-        <p className="warning-message">
+        <p className="warning-message" style={{ textAlign: "center" }}>
           Another focus task is already running. Please stop it before starting a new one.
         </p>
       )}

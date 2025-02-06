@@ -37,23 +37,22 @@ export default function HomePage() {
       </header>
       <div className="goals-grid">
         {goals.map(({ g_id, title, total_duration }) => {
-          const hours = Math.floor(total_duration / 60);
-          const minutes = total_duration % 60;
-
-          // Determine if the current goal is active
+          const total = parseInt(total_duration) || 0;
+          const hours = Math.floor(total / 60);
+          const minutes = total % 60;
           const isActive = g_id === activeGoalId;
 
           return (
-            <div
-              key={g_id}
-              className={`goal-card ${isActive ? "active-goal" : ""}`}
-            >
-              <Link href={`/goal/${g_id}`}>
-                <div className="goal-content">
+            <div key={g_id} className={`goal-card ${isActive ? "active-goal" : ""}`}>
+              <div className="goal-content">
+                <Link href={`/goal/${g_id}`}>
                   <h2>{title}</h2>
+                </Link>
+                {/* Duration is now a link to the visualization/stats page */}
+                <Link href={`/goal/${g_id}/stats`}>
                   <p>{hours}h {minutes}m</p>
-                </div>
-              </Link>
+                </Link>
+              </div>
             </div>
           );
         })}

@@ -48,7 +48,7 @@ export default function CredentialsPage() {
   return (
     <div className="credentials-container">
       <header>
-        <h1 className="credentials-title">Google Sheets Credentials</h1>
+        <h1 className="credentials-title">Google Credentials</h1>
         <p className="credentials-description">
           Please enter your Google Sheets credentials to proceed.
         </p>
