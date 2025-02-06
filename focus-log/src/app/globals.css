@@ -368,7 +368,6 @@ header {
   background-color: #8bd28d; /* Darker green on hover */
 }
 
-
 /* Tooltip Bubble */
 .tooltip-bubble {
   position: absolute;
@@ -402,8 +401,7 @@ header {
   max-width: 600px;
   margin: 40px auto;
   padding: 20px;
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
   border-radius: 8px;
 }
 

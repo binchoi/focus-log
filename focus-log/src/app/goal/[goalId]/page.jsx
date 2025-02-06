@@ -162,9 +162,9 @@ export default function GoalPage({ params }) {
         <button onClick={stopTimer} disabled={!timer} className="btn stop-btn">
           Stop
         </button>
-        <button onClick={() => router.push("/")} className="btn back-btn">
+        {/* <button onClick={() => router.push("/")} className="btn back-btn">
           Back to Goals
-        </button>
+        </button> */}
       </div>
       {isAnotherTimerActive && (
         <p className="warning-message" style={{ textAlign: "center" }}>

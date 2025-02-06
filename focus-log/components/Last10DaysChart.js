@@ -62,7 +62,7 @@ export default function Last10DaysChart({ goalId }) {
           <XAxis dataKey="date" tick={{ fontSize: 12 }} />
           <YAxis tick={{ fontSize: 12 }} />
           <Tooltip formatter={(value) => `${value} min`} />
-          <Line type="monotone" dataKey="minutes" stroke="#8884d8" strokeWidth={2} />
+          <Line type="monotone" dataKey="minutes" stroke="#c6e48b" strokeWidth={2} />
         </LineChart>
       </ResponsiveContainer>
     </div>
