@@ -42,13 +42,12 @@ export default function ContributionGrid({ goalId }) {
   }, [goalId]);
 
   useEffect(() => {
-    // Render the grid regardless of whether logs is empty
-    // Increase cell size and adjust dimensions for improved readability/responsiveness
-    const cellSize = 30; // new cell size
-    const gap = 4;       // increased gap between cells
+    // Render the grid even if logs are empty, so the grid always appears
+    const cellSize = 30; // New cell size
+    const gap = 4;       // Increased gap between cells
     const margin = { top: 20, right: 20, bottom: 20, left: 20 };
-    const width = 500;   // overall width of SVG
-    const height = 300;  // overall height of SVG
+    const width = 500;   // Fixed coordinate system width
+    const height = 300;  // Fixed coordinate system height
 
     const today = new Date();
     // Calculate current quarter start and end dates
@@ -68,7 +67,7 @@ export default function ContributionGrid({ goalId }) {
     // Create a Map where keys are date strings ("yyyy-MM-dd") and values are focus session counts
     const dataMap = new Map(logs.map((d) => [d.date, d.count]));
 
-    // Create a color scale using GitHub-like colors (for 0–4+ sessions)
+    // Create a color scale using GitHub-like colors for 0–4+ sessions
     const colorScale = d3.scaleThreshold()
       .domain([1, 2, 3, 4])
       .range(["#ebedf0", "#c6e48b", "#7bc96f", "#239a3b", "#196127"]);
@@ -76,7 +75,13 @@ export default function ContributionGrid({ goalId }) {
     // Select the SVG element and clear previous content
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
-    svg.attr("width", width).attr("height", height);
+
+    // Make the SVG responsive by setting its width to 100% and adding a viewBox and preserveAspectRatio.
+    svg
+      .attr("width", "100%")
+      .attr("height", height)
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .attr("preserveAspectRatio", "xMinYMin meet");
 
     // Create a tooltip
     const tooltip = d3.select("body")
@@ -94,14 +99,13 @@ export default function ContributionGrid({ goalId }) {
       .enter()
       .append("rect")
       .attr("class", "day")
-      // Arrange cells in columns (weeks) and rows (day-of-week)
+      // Arrange cells in columns (weeks) and rows (days of week)
       .attr("x", (d, i) => Math.floor(i / 7) * (cellSize + gap) + margin.left)
       .attr("y", (d, i) => (i % 7) * (cellSize + gap) + margin.top)
       .attr("width", cellSize)
       .attr("height", cellSize)
       .attr("fill", (d) => {
-        if (d > today) return "#f0f0f0"; // Future dates light gray
-        // Use local-format date key (yyyy-MM-dd) for consistency with logs
+        if (d > today) return "#f0f0f0"; // Future dates in light gray
         const key = format(d, "yyyy-MM-dd");
         const count = dataMap.get(key) || 0;
         return colorScale(count);
