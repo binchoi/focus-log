@@ -4,7 +4,7 @@
 *,
 *::before,
 *::after {
-  box-sizing: border-box; /* Includes padding and border in element's width/height */
+  box-sizing: border-box;
 }
 
 /* Global Styles */
@@ -16,33 +16,35 @@ body {
 }
 
 a {
-  color: black; /* Set link color to black */
-  text-decoration: none; /* Remove underline */
+  color: black;
+  text-decoration: none;
 }
 
 a:visited {
-  color: black; /* Ensure visited links remain black */
+  color: black;
 }
 
 a:hover {
-  color: #555; /* Optional: Add a subtle hover effect */
+  color: #555;
 }
 
 a:active {
-  color: black; /* Ensure active links remain black */
+  color: black;
 }
 
+/* Homepage Container */
 .homepage-container {
   display: flex;
-  flex-direction: column; /* Stack elements vertically */
-  justify-content: center; /* Center content vertically */
-  align-items: center; /* Center content horizontally */
-  min-height: 100vh; /* Full viewport height */
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
 }
 
 /* Header Styles */
 header {
-  margin-bottom: 20px; /* Add space below the header */
+  margin-bottom: 20px;
 }
 
 .app-title {
@@ -54,9 +56,12 @@ header {
 /* Grid and Card Layout */
 .goals-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 20px;
-  justify-content: center; /* Center grid items horizontally */
+  width: 100%;
+  max-width: 1200px;
+  padding: 0 20px;
+  margin: 0 auto;
 }
 
 .goal-card {
@@ -65,6 +70,8 @@ header {
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   text-align: center;
+  height: 100%;
+  min-height: 150px; /* Add minimum height to cards */
 }
 
 .goal-card:hover {
@@ -74,15 +81,51 @@ header {
 
 .goal-content {
   padding: 20px;
+  height: 100%;
+  min-height: 150px; /* Match card's minimum height */
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Changed from space-between to center */
+  align-items: center;
+  gap: 10px; /* Add space between title and duration */
 }
 
 .goal-content h2 {
   font-size: 1.5rem;
   font-weight: bold;
+  margin: 0 0 10px 0;
 }
 
 .goal-content p {
   color: #888888;
+  margin: 0;
+}
+
+/* Media Query for medium screens */
+@media screen and (max-width: 1024px) {
+  .goals-grid {
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 15px;
+    padding: 0 15px;
+  }
+}
+
+/* Media Query for small screens */
+@media screen and (max-width: 650px) {
+  .goals-grid {
+    grid-template-columns: 1fr; /* Forces single column */
+    gap: 15px;
+    padding: 0 10px;
+  }
+  .goal-content {
+    padding: 15px;
+  }
+  .goal-content h2 {
+    font-size: 1.3rem;
+  }
+  .goal-content p {
+    font-size: 0.9rem;
+  }
 }
 
 /* Goal Page Container */
