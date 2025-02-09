@@ -3,9 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { appendLog, getTitleByGid } from "../../../../utils/googleSheetsApi";
 import { useRouter } from "next/navigation";
-
 import Navbar from "../../../../components/Navbar";
-
 
 export default function GoalPage({ params }) {
   const router = useRouter();
@@ -18,6 +16,7 @@ export default function GoalPage({ params }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [adjustedFocusTimeMinutes, setAdjustedFocusTimeMinutes] = useState(0); // Store adjusted time in minutes
   const [tooltipVisible, setTooltipVisible] = useState(false); // Tooltip visibility
+  const [tooltipMessage, setTooltipMessage] = useState(""); // Tooltip error message
 
   const TIMER_KEY = `goal_timer_${goalId}`;
   const ACTIVE_TIMER_KEY = "active_timer";
@@ -35,7 +34,6 @@ export default function GoalPage({ params }) {
     const storedTimer = JSON.parse(localStorage.getItem(TIMER_KEY));
     if (storedTimer) {
       const { startTime, timestamp } = storedTimer;
-
       // Validate TTL
       if (Date.now() - timestamp < TTL) {
         const elapsedTime = Math.floor((Date.now() - new Date(startTime)) / 1000);
@@ -116,26 +114,32 @@ export default function GoalPage({ params }) {
   const handleDiscardSession = () => {
     localStorage.removeItem(TIMER_KEY); // Clear timer state
     localStorage.removeItem(ACTIVE_TIMER_KEY); // Clear global active timer
-
     resetState();
   };
 
   // Reset state after handling modal actions
   const resetState = () => {
-    setFocusTime(0); // Reset focus time
-    setIsAnotherTimerActive(false); // Allow other timers to start
-    setIsModalOpen(false); // Close modal
-    setTooltipVisible(false); // Hide tooltip when modal closes
+    setFocusTime(0);
+    setIsAnotherTimerActive(false);
+    setIsModalOpen(false);
+    setTooltipVisible(false);
+    setTooltipMessage("");
   };
 
   // Handle adjustment input change with validation
   const handleAdjustmentChange = (value) => {
-    if (value > Math.floor(focusTime / 60)) {
-      setTooltipVisible(true); // Show tooltip if value exceeds recorded time
+    if (value < 0) {
+      setTooltipMessage("Must not be less than 0 minutes!");
+      setTooltipVisible(true);
       return;
     }
-    
-    setTooltipVisible(false); // Hide tooltip if value is valid
+    if (value > Math.floor(focusTime / 60)) {
+      setTooltipMessage("Cannot exceed recorded time!");
+      setTooltipVisible(true);
+      return;
+    }
+    setTooltipVisible(false);
+    setTooltipMessage("");
     setAdjustedFocusTimeMinutes(value);
   };
 
@@ -162,16 +166,12 @@ export default function GoalPage({ params }) {
         <button onClick={stopTimer} disabled={!timer} className="btn stop-btn">
           Stop
         </button>
-        {/* <button onClick={() => router.push("/")} className="btn back-btn">
-          Back to Goals
-        </button> */}
       </div>
       {isAnotherTimerActive && (
         <p className="warning-message" style={{ textAlign: "center" }}>
           Another focus task is already running. Please stop it before starting a new one.
         </p>
       )}
-
 
       {/* Modal */}
       {isModalOpen && (
@@ -183,33 +183,31 @@ export default function GoalPage({ params }) {
               <button onClick={handleLogSession} className="btn log-btn">Log Session</button>
               <button onClick={handleDiscardSession} className="btn discard-btn">Discard Session</button>
             </div>
-
             <hr className="modal-divider" />
-
             <div className="adjust-section">
-                <p>or adjust the session duration (min)</p>
-                <div className="adjust-controls">
-                    <div className="input-container">
-                    {tooltipVisible && (
-                        <div className="tooltip-bubble">
-                        Cannot exceed recorded time!
-                        </div>
-                    )}
-                    <input 
-                        type="number" 
-                        value={adjustedFocusTimeMinutes} 
-                        onChange={(e) => handleAdjustmentChange(Number(e.target.value))} 
-                        className={`adjust-input ${tooltipVisible ? 'input-error' : ''}`}
-                    />
+              <p>or adjust the session duration (min)</p>
+              <div className="adjust-controls">
+                <div className="input-container">
+                  {tooltipVisible && (
+                    <div className="tooltip-bubble">
+                      {tooltipMessage}
                     </div>
-                    <button 
-                    onClick={handleLogSession} 
-                    disabled={tooltipVisible} 
-                    className="btn adjust-save-btn"
-                    >
-                    Adjust & Log
-                    </button>
+                  )}
+                  <input 
+                    type="number" 
+                    value={adjustedFocusTimeMinutes} 
+                    onChange={(e) => handleAdjustmentChange(Number(e.target.value))} 
+                    className={`adjust-input ${tooltipVisible ? 'input-error' : ''}`}
+                  />
                 </div>
+                <button 
+                  onClick={handleLogSession} 
+                  disabled={tooltipVisible} 
+                  className="btn adjust-save-btn"
+                >
+                  Adjust & Log
+                </button>
+              </div>
             </div>
           </div>
         </div>      
