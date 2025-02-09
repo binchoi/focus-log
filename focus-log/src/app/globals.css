@@ -126,6 +126,18 @@ header {
   .goal-content p {
     font-size: 0.9rem;
   }
+
+  .adjust-controls {
+    flex-direction: column; /* Stack the input and button vertically */
+    gap: 10px;
+  }
+  
+  .adjust-input,
+  .adjust-save-btn {
+    width: 100%; /* Make the controls fill the modal's width */
+    box-sizing: border-box;
+  }
+
 }
 
 /* Goal Page Container */
@@ -382,33 +394,34 @@ header {
 /* Adjust Controls */
 .adjust-controls {
   display: flex;
-  gap: 10px; /* Add spacing between input and button */
-  align-items: center; /* Align input and button vertically */
-  width: 100%; /* Ensure full width of the modal */
+  gap: 10px; /* Space between the input and button */
+  align-items: center;
+  width: 100%; /* Full width of parent */
+  flex-wrap: wrap; /* Allow items to wrap if space is tight */
 }
 
-/* Adjust Input Field */
 .adjust-input {
-  flex-grow: 1; /* Allow input to take up remaining space */
+  flex-grow: 1;           /* Take up remaining space */
   padding: 8px;
   font-size: 1rem;
   border-radius: 5px;
-  border: solid #ccc thin;
+  border: 1px solid #ccc;
 }
 
-/* Adjust Button */
+/* Ensure the Adjust & Log button is sized appropriately */
 .adjust-save-btn {
   padding: 8px 16px;
   font-size: 1rem;
   font-weight: bold;
-  background-color: #a7d4a8; /* Green button */
+  background-color: #a7d4a8;
   color: white;
   border: none;
   border-radius: 5px;
 }
 
+/* Hover state for the button */
 .adjust-save-btn:hover {
-  background-color: #8bd28d; /* Darker green on hover */
+  background-color: #8bd28d;
 }
 
 /* Tooltip Bubble */
