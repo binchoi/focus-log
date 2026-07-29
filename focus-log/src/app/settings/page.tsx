@@ -112,23 +112,40 @@ export default function SettingsPage() {
             </p>
           </Panel>
         ) : (
-          <ul className="mt-5 space-y-2.5">
-            {goals.map((goal) => {
-              const color = goalColor(goal.goal_id, goal.color);
-              return (
-                <li key={goal.goal_id}>
-                  <Panel className="flex flex-wrap items-end gap-3 p-4">
-                    <span
-                      aria-hidden="true"
-                      className="mb-3 h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ background: color }}
-                    />
+          <div className="mt-5">
+            {/*
+              Column headings appear once here rather than as a per-row <Field>
+              label. Repeating "Title" and "Weekly target" down a list is noise,
+              and — more practically — the per-row hint under the target input
+              made that one column two lines taller than its neighbours, so
+              nothing in the row could line up. Every row is now a single line of
+              controls, aligned with items-center.
+            */}
+            <div className="hidden gap-3 px-4 pb-2 lg:grid lg:grid-cols-[0.625rem_1fr_13rem_11rem_2.25rem] lg:items-end">
+              <span aria-hidden="true" />
+              <span className="label">Goal</span>
+              <span className="label">Weekly target</span>
+              <span className="label">Colour</span>
+              <span aria-hidden="true" />
+            </div>
 
-                    <Field label="Title" className="min-w-[12rem] flex-1">
+            <ul className="space-y-2.5">
+              {goals.map((goal) => {
+                const color = goalColor(goal.goal_id, goal.color);
+                return (
+                  <li key={goal.goal_id}>
+                    <Panel className="flex flex-wrap items-center gap-3 p-4 lg:grid lg:grid-cols-[0.625rem_1fr_13rem_11rem_2.25rem]">
+                      <span
+                        aria-hidden="true"
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: color }}
+                      />
+
                       <Input
                         aria-label={`Title for ${goal.title}`}
                         defaultValue={goal.title}
                         maxLength={200}
+                        className="min-w-[10rem] flex-1 lg:min-w-0"
                         onBlur={(event) => {
                           const title = event.target.value.trim();
                           if (title && title !== goal.title) {
@@ -136,70 +153,73 @@ export default function SettingsPage() {
                           }
                         }}
                       />
-                    </Field>
 
-                    <Field
-                      label="Weekly target"
-                      className="w-32"
-                      hint={
-                        goal.weekly_target_minutes > 0
-                          ? `${formatTotal(goal.weekly_target_minutes * 60)} per week`
-                          : "no target"
-                      }
-                    >
-                      <Input
-                        type="number"
-                        min={0}
-                        step={30}
-                        aria-label={`Weekly target minutes for ${goal.title}`}
-                        className="num"
-                        defaultValue={goal.weekly_target_minutes}
-                        onBlur={(event) => {
-                          const minutes = Number(event.target.value);
-                          if (
-                            Number.isFinite(minutes) &&
-                            minutes >= 0 &&
-                            minutes !== goal.weekly_target_minutes
-                          ) {
-                            void run(() =>
-                              updateGoal(goal.goal_id, { weekly_target_minutes: minutes }),
-                            );
-                          }
-                        }}
-                      />
-                    </Field>
-
-                    <div className="mb-0.5 flex items-center gap-1.5">
-                      {GOAL_COLORS.map((swatch) => (
-                        <button
-                          key={swatch}
-                          type="button"
-                          aria-label={`Set ${goal.title} colour`}
-                          onClick={() => void run(() => updateGoal(goal.goal_id, { color: swatch }))}
-                          className={cn(
-                            "h-4 w-4 rounded-full transition-transform duration-150 hover:scale-125",
-                            color.toLowerCase() === swatch && "ring-2 ring-cream-200 ring-offset-2 ring-offset-ink-900",
-                          )}
-                          style={{ background: swatch }}
+                      {/* Minutes field and its human-readable equivalent sit on
+                          the same line, so this column is no taller than the
+                          others. */}
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={30}
+                          aria-label={`Weekly target minutes for ${goal.title}`}
+                          className="num w-[5.5rem] shrink-0"
+                          defaultValue={goal.weekly_target_minutes}
+                          onBlur={(event) => {
+                            const minutes = Number(event.target.value);
+                            if (
+                              Number.isFinite(minutes) &&
+                              minutes >= 0 &&
+                              minutes !== goal.weekly_target_minutes
+                            ) {
+                              void run(() =>
+                                updateGoal(goal.goal_id, { weekly_target_minutes: minutes }),
+                              );
+                            }
+                          }}
                         />
-                      ))}
-                    </div>
+                        <span className="whitespace-nowrap text-xs text-cream-600">
+                          {goal.weekly_target_minutes > 0
+                            ? `${formatTotal(goal.weekly_target_minutes * 60)} per week`
+                            : "no target"}
+                        </span>
+                      </div>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title={`Archive ${goal.title}`}
-                      aria-label={`Archive ${goal.title}`}
-                      className="mb-0.5 hover:text-danger"
-                      onClick={() => void run(() => deleteGoal(goal.goal_id))}
-                    >
-                      <Trash2 size={15} />
-                    </Button>
-                  </Panel>
-                </li>
-              );
-            })}
-          </ul>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {GOAL_COLORS.map((swatch) => (
+                          <button
+                            key={swatch}
+                            type="button"
+                            aria-label={`Set ${goal.title} colour to ${swatch}`}
+                            onClick={() =>
+                              void run(() => updateGoal(goal.goal_id, { color: swatch }))
+                            }
+                            className={cn(
+                              "h-4 w-4 rounded-full transition-transform duration-150 hover:scale-125",
+                              color.toLowerCase() === swatch &&
+                                "ring-2 ring-cream-200 ring-offset-2 ring-offset-ink-900",
+                            )}
+                            style={{ background: swatch }}
+                          />
+                        ))}
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={`Archive ${goal.title}`}
+                        aria-label={`Archive ${goal.title}`}
+                        className="shrink-0 hover:text-danger"
+                        onClick={() => void run(() => deleteGoal(goal.goal_id))}
+                      >
+                        <Trash2 size={15} />
+                      </Button>
+                    </Panel>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
       </section>
 

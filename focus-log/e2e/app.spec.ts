@@ -216,6 +216,59 @@ test.describe("goal and session management", () => {
       .toBe(true);
   });
 
+  test("every control in a goal row shares one baseline", async ({ page, context }) => {
+    // The per-row hint under the weekly-target input used to make that column
+    // two lines taller than its neighbours, so with items-end nothing lined up
+    // and the swatches and trash faked it with ad-hoc margins.
+    const sheet = new FakeSheet();
+    await sheet.install(context);
+    await boot(page);
+    await createGoal(page, "Alignment");
+
+    await page.getByLabel(/^Weekly target minutes for Alignment$/).fill("300");
+    await page.getByLabel(/^Weekly target minutes for Alignment$/).blur();
+    await expect(page.getByText("5h per week")).toBeVisible();
+
+    const centres = await Promise.all(
+      [
+        page.getByLabel(/^Title for Alignment$/),
+        page.getByLabel(/^Weekly target minutes for Alignment$/),
+        page.getByText("5h per week"),
+        page.getByRole("button", { name: /^Set Alignment colour to/ }).first(),
+        page.getByRole("button", { name: /^Archive Alignment$/ }),
+      ].map(async (locator) => {
+        const box = await locator.boundingBox();
+        return box!.y + box!.height / 2;
+      }),
+    );
+
+    const spread = Math.max(...centres) - Math.min(...centres);
+    expect(spread, `controls are vertically misaligned by ${spread.toFixed(1)}px`).toBeLessThan(2);
+
+    // And the whole row stays on one line on a desktop viewport.
+    const row = page.getByLabel(/^Title for Alignment$/).locator("xpath=ancestor::li[1]");
+    const height = (await row.boundingBox())!.height;
+    expect(height).toBeLessThan(80);
+
+    // Column headings must sit over their column. `auto` grid tracks are sized
+    // from each grid's own content, so a header grid and a row grid with the same
+    // template can still resolve to different widths — which is exactly how
+    // "Colour" drifted off the swatches.
+    const pairs: [string, ReturnType<typeof page.getByRole>][] = [
+      ["Goal", page.getByLabel(/^Title for Alignment$/)],
+      ["Weekly target", page.getByLabel(/^Weekly target minutes for Alignment$/)],
+      ["Colour", page.getByRole("button", { name: /^Set Alignment colour to/ }).first()],
+    ];
+    for (const [heading, control] of pairs) {
+      const headBox = (await page.getByText(heading, { exact: true }).boundingBox())!;
+      const controlBox = (await control.boundingBox())!;
+      expect(
+        Math.abs(headBox.x - controlBox.x),
+        `"${heading}" heading is ${Math.abs(headBox.x - controlBox.x).toFixed(1)}px off its column`,
+      ).toBeLessThan(3);
+    }
+  });
+
   test("a backfilled session is attributed to the chosen day", async ({ page, context }) => {
     const sheet = new FakeSheet();
     await sheet.install(context);
