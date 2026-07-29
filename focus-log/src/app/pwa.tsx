@@ -9,17 +9,17 @@
  * has not reached the spreadsheet yet.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Download, WifiOff, X } from "lucide-react";
+import {
+  dismissInstallNudge,
+  getInstallState,
+  getServerInstallState,
+  promptInstall,
+  subscribeToInstallState,
+} from "@lib/pwa/install";
 import { Button, cn } from "@/components/ui";
 import { useApp } from "./providers";
-
-interface InstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
-
-const DISMISSED_KEY = "focus-log.install_dismissed";
 
 export function PwaBits() {
   return (
@@ -96,31 +96,21 @@ function OfflineBanner() {
 }
 
 /**
- * Install prompt. Only shown once the browser has actually fired
- * beforeinstallprompt, so it never appears where installing is impossible.
+ * Opportunistic install nudge.
+ *
+ * Reads the shared store rather than listening for beforeinstallprompt itself —
+ * there is only one such event, so two independent listeners would race for it.
+ * Dismissing this is remembered forever, which is why Settings → Install exists
+ * as the durable route.
  */
 function InstallPrompt() {
-  const [event, setEvent] = useState<InstallPromptEvent | undefined>();
-  const [hidden, setHidden] = useState(true);
+  const { canPrompt, dismissed } = useSyncExternalStore(
+    subscribeToInstallState,
+    getInstallState,
+    getServerInstallState,
+  );
 
-  useEffect(() => {
-    if (localStorage.getItem(DISMISSED_KEY) === "1") return undefined;
-
-    const onPrompt = (native: Event) => {
-      native.preventDefault(); // keep the browser's own mini-infobar away
-      setEvent(native as InstallPromptEvent);
-      setHidden(false);
-    };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
-  }, []);
-
-  function dismiss() {
-    setHidden(true);
-    localStorage.setItem(DISMISSED_KEY, "1");
-  }
-
-  if (!event || hidden) return null;
+  if (!canPrompt || dismissed) return null;
 
   return (
     <div
@@ -131,7 +121,7 @@ function InstallPrompt() {
     >
       <button
         type="button"
-        onClick={dismiss}
+        onClick={dismissInstallNudge}
         aria-label="Dismiss install prompt"
         className="absolute right-3 top-3 rounded p-1 text-cream-600 transition-colors hover:bg-ink-800 hover:text-cream-50"
       >
@@ -141,6 +131,7 @@ function InstallPrompt() {
       <h2 className="pr-6 font-display text-lg text-cream-50">Install Focus Log</h2>
       <p className="mt-1.5 text-sm leading-relaxed text-cream-400">
         Run it in its own window and start a session without opening a browser tab. Works offline.
+        You can also do this later from Settings.
       </p>
 
       <div className="mt-4 flex gap-2">
@@ -149,16 +140,15 @@ function InstallPrompt() {
           size="sm"
           onClick={() => {
             void (async () => {
-              await event.prompt();
-              await event.userChoice;
-              dismiss();
+              await promptInstall();
+              dismissInstallNudge();
             })();
           }}
         >
           <Download size={14} />
           Install
         </Button>
-        <Button variant="ghost" size="sm" onClick={dismiss}>
+        <Button variant="ghost" size="sm" onClick={dismissInstallNudge}>
           Not now
         </Button>
       </div>
