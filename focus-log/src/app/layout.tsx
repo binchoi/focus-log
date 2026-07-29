@@ -1,29 +1,53 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Instrument_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "./providers";
+import { AppShell } from "./shell";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+/**
+ * next/font self-hosts these at build time, so they are served from our own
+ * origin and the CSP's `font-src 'self'` holds. (The old app pulled a Google
+ * Fonts stylesheet cross-origin — render-blocking and CSP-violating.)
+ */
+const display = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
+
+const sans = Instrument_Sans({
+  variable: "--font-instrument-sans",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const mono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Focus Log",
-  description: "Log your focus. Achieve your goals.",
+  description: "A private ledger of attention.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // The timer screen is the whole point of the app on a phone; let it use the
-  // full viewport height without the address bar stealing 100vh.
   viewportFit: "cover",
+  themeColor: "#0b0a09",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <AppProvider>{children}</AppProvider>
+    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+      <body className="min-h-dvh antialiased">
+        <AppProvider>
+          <AppShell>{children}</AppShell>
+        </AppProvider>
       </body>
     </html>
   );

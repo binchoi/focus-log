@@ -1,28 +1,20 @@
 "use client";
 
-/**
- * Stats for one goal, read from the local store.
- *
- * The heatmap is plain CSS grid — d3 is gone. Besides removing ~100 kB from the
- * bundle, it lets rows be genuine weekdays and columns genuine calendar weeks,
- * which the index-based d3 layout could not do. Recharts is also gone from this
- * route; the trend below is a small inline SVG.
- */
-
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { ArrowLeft, Timer } from "lucide-react";
 import { listGoals, listSessions } from "@lib/store/repo";
 import { currentTimeZone, formatTotal, localDateOf } from "@lib/time";
 import { addDays, buildHeatmap, currentStreak } from "@lib/stats/heatmap";
+import { Button, Panel, Stat, goalColor } from "@/components/ui";
+import { Heatmap, TrendBars } from "@/components/heatmap";
 
-const WEEKDAY_LABELS = ["Mon", "", "Wed", "", "Fri", "", "Sun"];
-const DAYS_SHOWN = 120;
+const DAYS_SHOWN = 181; // 26 whole weeks, half a year
 
-export default function StatsPage() {
-  const params = useParams<{ goalId: string }>();
-  const goalId = params.goalId;
+export default function GoalStatsPage() {
+  const { goalId } = useParams<{ goalId: string }>();
 
   const goal = useLiveQuery(
     async () => (await listGoals()).find((g) => g.goal_id === goalId),
@@ -31,12 +23,13 @@ export default function StatsPage() {
   );
   const sessionsOrUndefined = useLiveQuery(() => listSessions({ goalId }), [goalId], undefined);
   const loading = sessionsOrUndefined === undefined;
-  // Memoised so the `?? []` fallback doesn't produce a fresh array identity on
-  // every render and invalidate the derived useMemos below.
+  // Memoised so the `?? []` fallback doesn't produce a new array identity each
+  // render and invalidate everything derived from it.
   const sessions = useMemo(() => sessionsOrUndefined ?? [], [sessionsOrUndefined]);
 
   const timeZone = currentTimeZone();
   const today = localDateOf(new Date(), timeZone);
+  const color = goalColor(goalId, goal?.color);
 
   const secondsByDate = useMemo(() => {
     const map = new Map<string, number>();
@@ -46,7 +39,7 @@ export default function StatsPage() {
     return map;
   }, [sessions]);
 
-  const heatmap = useMemo(
+  const layout = useMemo(
     () =>
       buildHeatmap({
         from: addDays(today, -(DAYS_SHOWN - 1)),
@@ -57,134 +50,99 @@ export default function StatsPage() {
     [secondsByDate, today],
   );
 
-  const last14 = useMemo(() => {
-    const days = Array.from({ length: 14 }, (_, i) => addDays(today, -(13 - i)));
-    return days.map((date) => ({ date, seconds: secondsByDate.get(date) ?? 0 }));
-  }, [secondsByDate, today]);
+  const last14 = useMemo(
+    () =>
+      Array.from({ length: 14 }, (_, i) => {
+        const date = addDays(today, -(13 - i));
+        return { date, seconds: secondsByDate.get(date) ?? 0 };
+      }),
+    [secondsByDate, today],
+  );
 
   const total = sessions.reduce((sum, s) => sum + s.duration_seconds, 0);
-  const streak = currentStreak(secondsByDate, today);
   const activeDays = [...secondsByDate.values()].filter((s) => s > 0).length;
-
-  if (loading) {
-    return (
-      <div className="goal-page-container">
-        <p className="setup-help">Loading…</p>
-      </div>
-    );
-  }
+  const streak = currentStreak(secondsByDate, today);
+  const median = useMemo(() => {
+    if (sessions.length === 0) return 0;
+    const sorted = [...sessions].map((s) => s.duration_seconds).sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid]! : Math.round(((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2);
+  }, [sessions]);
 
   return (
-    <div className="stats-page">
-      <nav className="navbar">
-        <Link href="/">home</Link>
-        <Link href={`/goal/${goalId}`}>timer</Link>
-        <Link href="/settings">settings</Link>
-      </nav>
+    <div className="mx-auto max-w-[1100px] px-5 py-6 md:px-8 md:py-8">
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          href={`/goal/${goalId}`}
+          className="group flex items-center gap-2 text-sm text-cream-400 transition-colors hover:text-cream-50"
+        >
+          <ArrowLeft
+            size={15}
+            className="transition-transform duration-200 group-hover:-translate-x-0.5"
+          />
+          Timer
+        </Link>
+        <Link href={`/goal/${goalId}`}>
+          <Button variant="ghost" size="sm">
+            <Timer size={14} />
+            Start a session
+          </Button>
+        </Link>
+      </div>
 
-      <header>
-        <h1 className="goal-title">{goal?.title ?? "Unknown goal"}</h1>
+      <header className="rise mt-6" style={{ "--i": 0 } as React.CSSProperties}>
+        <p className="label">Insights</p>
+        <h1 className="mt-1.5 flex items-center gap-3 font-display text-4xl text-cream-50">
+          <span
+            aria-hidden="true"
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
+            style={{ background: color, boxShadow: `0 0 12px -1px ${color}` }}
+          />
+          {goal?.title ?? "Unknown goal"}
+        </h1>
       </header>
 
-      <dl className="stat-tiles">
-        <div>
-          <dt>Total</dt>
-          <dd>{formatTotal(total)}</dd>
-        </div>
-        <div>
-          <dt>Sessions</dt>
-          <dd>{sessions.length}</dd>
-        </div>
-        <div>
-          <dt>Active days</dt>
-          <dd>{activeDays}</dd>
-        </div>
-        <div>
-          <dt>Streak</dt>
-          <dd>
-            {streak} day{streak === 1 ? "" : "s"}
-          </dd>
-        </div>
-      </dl>
-
-      <section>
-        <h2>Last {DAYS_SHOWN} days</h2>
-        {heatmap.maxSeconds === 0 ? (
-          <p className="setup-help">No sessions logged yet.</p>
-        ) : (
-          <div className="heatmap-wrap">
-            <div className="heatmap-months" style={{ gridTemplateColumns: `repeat(${heatmap.weeks}, 1fr)` }}>
-              {heatmap.monthLabels.map((m) => (
-                <span key={`${m.week}-${m.label}`} style={{ gridColumnStart: m.week + 1 }}>
-                  {m.label}
-                </span>
-              ))}
-            </div>
-
-            <div className="heatmap-body">
-              <div className="heatmap-weekdays" aria-hidden="true">
-                {WEEKDAY_LABELS.map((label, index) => (
-                  <span key={index}>{label}</span>
-                ))}
-              </div>
-
-              <div
-                className="heatmap-grid"
-                style={{ gridTemplateColumns: `repeat(${heatmap.weeks}, 1fr)` }}
-                role="img"
-                aria-label={`Focus heatmap: ${activeDays} active days in the last ${DAYS_SHOWN} days, ${formatTotal(total)} total.`}
-              >
-                {heatmap.cells.map((cell) => (
-                  <span
-                    key={cell.date}
-                    className={`heatmap-cell level-${cell.level}${cell.isFuture ? " is-future" : ""}`}
-                    style={{ gridColumnStart: cell.week + 1, gridRowStart: cell.weekday + 1 }}
-                    title={`${cell.date}: ${cell.seconds > 0 ? formatTotal(cell.seconds) : "nothing logged"}`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="heatmap-legend">
-              <span>Less</span>
-              {[0, 1, 2, 3, 4].map((level) => (
-                <span key={level} className={`heatmap-cell level-${level}`} />
-              ))}
-              <span>More</span>
-              <span className="setup-help">Busiest day: {formatTotal(heatmap.maxSeconds)}</span>
-            </div>
+      {loading ? (
+        <p className="label mt-8">Loading</p>
+      ) : (
+        <>
+          <div
+            className="rise mt-7 grid grid-cols-2 gap-3 md:grid-cols-5"
+            style={{ "--i": 1 } as React.CSSProperties}
+          >
+            <Stat label="All time" value={formatTotal(total)} accent />
+            <Stat label="Sessions" value={sessions.length} />
+            <Stat label="Typical" value={formatTotal(median)} sub="median session" />
+            <Stat label="Active days" value={activeDays} />
+            <Stat label="Streak" value={`${streak}d`} />
           </div>
-        )}
-      </section>
 
-      <section>
-        <h2>Last 14 days</h2>
-        <TrendBars data={last14} />
-      </section>
-    </div>
-  );
-}
+          <section className="rise mt-10" style={{ "--i": 2 } as React.CSSProperties}>
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="font-display text-2xl text-cream-50">Last 26 weeks</h2>
+              <span className="label">
+                {activeDays} active day{activeDays === 1 ? "" : "s"}
+              </span>
+            </div>
+            <Panel className="w-fit max-w-full p-5">
+              {total === 0 ? (
+                <p className="py-6 text-center text-sm text-cream-400">
+                  Nothing logged yet for this goal.
+                </p>
+              ) : (
+                <Heatmap layout={layout} color={color} />
+              )}
+            </Panel>
+          </section>
 
-/** Minimal bar chart. Not worth a charting dependency at this size. */
-function TrendBars({ data }: { data: { date: string; seconds: number }[] }) {
-  const max = Math.max(1, ...data.map((d) => d.seconds));
-  return (
-    <div className="trend">
-      {data.map((point) => (
-        <div key={point.date} className="trend-col" title={`${point.date}: ${formatTotal(point.seconds)}`}>
-          <div className="trend-bar-track">
-            <div
-              className="trend-bar"
-              style={{ height: `${(point.seconds / max) * 100}%` }}
-              aria-hidden="true"
-            />
-          </div>
-          <span className="trend-label">{point.date.slice(8)}</span>
-        </div>
-      ))}
-      <p className="visually-hidden">
-        {data.map((d) => `${d.date}: ${formatTotal(d.seconds)}`).join(", ")}
-      </p>
+          <section className="rise mt-10" style={{ "--i": 3 } as React.CSSProperties}>
+            <h2 className="mb-4 font-display text-2xl text-cream-50">Last 14 days</h2>
+            <Panel className="p-5">
+              <TrendBars data={last14} color={color} />
+            </Panel>
+          </section>
+        </>
+      )}
     </div>
   );
 }

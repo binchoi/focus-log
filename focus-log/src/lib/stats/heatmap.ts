@@ -112,12 +112,19 @@ export function buildHeatmap(options: BuildHeatmapOptions): HeatmapLayout {
       isFuture: cursor > today,
     });
 
-    // Label a column with the month its Monday falls in, once per month.
+    // Label a column with the month its Monday falls in, once per month — but
+    // only when there is room. Two months can start one column apart at the
+    // snapped-back start of the range, which renders as "MarApr".
     if (weekday === 0) {
       const month = cursor.slice(0, 7);
-      if (month !== seenMonth) {
+      const lastLabel = monthLabels[monthLabels.length - 1];
+      const roomForLabel = lastLabel === undefined || week - lastLabel.week >= 3;
+      if (month !== seenMonth && roomForLabel) {
         seenMonth = month;
         monthLabels.push({ week, label: MONTHS[Number(cursor.slice(5, 7)) - 1] ?? "" });
+      } else if (month !== seenMonth) {
+        // Still record that we have entered the month, so the next one labels.
+        seenMonth = month;
       }
     }
 

@@ -18,17 +18,25 @@
     "sheet:template": "node --experimental-strip-types --no-warnings scripts/generate-sheet-template.ts"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@radix-ui/react-progress": "^1.1.16",
+    "@radix-ui/react-tooltip": "^1.2.16",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dexie": "^4.4.4",
     "dexie-react-hooks": "^4.4.0",
+    "lucide-react": "^1.27.0",
     "next": "16.2.12",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "recharts": "^2.15.1",
+    "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
@@ -36,7 +44,9 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "16.2.12",
     "fake-indexeddb": "^6.2.5",
+    "postcss": "^8.5.24",
     "prettier": "^3.9.6",
+    "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

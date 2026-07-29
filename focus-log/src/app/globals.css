@@ -1,1117 +1,279 @@
-/*
- * Removed: @import of a Google Fonts stylesheet for "Helvetica".
- * It was a render-blocking cross-origin request for a font already present on
- * every target OS, and `body { font-family: Helvetica }` below then overrode the
- * Geist fonts that layout.js loads via next/font — so Geist was downloaded on
- * every page load and never actually used. The CSP in next.config.mjs also
- * disallows cross-origin stylesheets.
- */
-
-/* Ensure Box Sizing Includes Padding and Border */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-/* Global Styles */
-body {
-  /* Use the Geist family that layout.js actually loads, falling back to system
-     UI fonts. Part B replaces this stylesheet wholesale. */
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
-    Arial, sans-serif;
-  margin: 0;
-  padding: 0;
-  background-color: #f9f9f9;
-}
-
-a {
-  color: black;
-  text-decoration: none;
-}
-
-a:visited {
-  color: black;
-}
-
-a:hover {
-  color: #555;
-}
-
-a:active {
-  color: black;
-}
-
-/* Homepage Container */
-.homepage-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: center;
-  min-height: 100vh;
-  padding: 20px;
-}
-
-/* Header Styles */
-header {
-  margin-bottom: 20px;
-}
-
-.app-title {
-  font-size: 2.5rem;
-  font-weight: bold;
-  text-align: center;
-}
-
-/* Grid and Card Layout */
-.goals-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
-  width: 100%;
-  max-width: 1200px;
-  padding: 0 20px;
-  margin: 0 auto;
-}
-
-.goal-card {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  text-align: center;
-  height: 100%;
-  min-height: 150px; /* Add minimum height to cards */
-}
-
-.goal-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0px 6px 10px rgba(0, 0, 0, 0.15);
-}
-
-.goal-content {
-  padding: 20px;
-  height: 100%;
-  min-height: 150px; /* Match card's minimum height */
-  display: flex;
-  flex-direction: column;
-  justify-content: center; /* Changed from space-between to center */
-  align-items: center;
-  gap: 10px; /* Add space between title and duration */
-}
-
-.goal-content h2 {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin: 0 0 10px 0;
-}
-
-.goal-content p {
-  color: #888888;
-  margin: 0;
-}
-
-/* Media Query for medium screens */
-@media screen and (max-width: 1024px) {
-  .goals-grid {
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 15px;
-    padding: 0 15px;
-  }
-}
-
-/* Media Query for small screens */
-@media screen and (max-width: 650px) {
-  .goals-grid {
-    grid-template-columns: 1fr; /* Forces single column */
-    gap: 15px;
-    padding: 0 10px;
-  }
-  .goal-content {
-    padding: 15px;
-  }
-  .goal-content h2 {
-    font-size: 1.3rem;
-  }
-  .goal-content p {
-    font-size: 0.9rem;
-  }
-
-  .adjust-controls {
-    flex-direction: column; /* Stack the input and button vertically */
-    gap: 10px;
-  }
-  
-  .adjust-input,
-  .adjust-save-btn {
-    width: 100%; /* Make the controls fill the modal's width */
-    box-sizing: border-box;
-  }
-
-}
-
-/* Goal Page Container */
-.goal-page-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background-color: #f9f9f9;
-}
-
-/* Header */
-.goal-title {
-  font-size: 2rem;
-  font-weight: bold;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-/* Timer Display */
-.timer-display {
-  font-size: 3rem;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 30px;
-}
-
-/* Buttons */
-.button-group {
-  display: flex;
-  gap: 15px;
-}
-
-.btn {
-  padding: 10px 20px;
-  font-size: 1rem;
-  font-weight: bold;
-  border-radius: 5px;
-  border: none;
-}
-
-.start-btn {
-  background-color: #4caf50; /* Green */
-  color: white;
-}
-
-.start-btn:hover {
-  background-color: #45a049;
-}
-
-.stop-btn {
-  background-color: #f44336; /* Red */
-  color: white;
-}
-
-.stop-btn:hover {
-  background-color: #e53935;
-}
-
-.back-btn {
-  background-color: #555; /* Gray */
-  color: white;
-}
-
-.back-btn:hover {
-  background-color: #444;
-}
-
-/* Disabled Button State */
-.btn[disabled] {
-  opacity: 0.6;
-}
-
-/* Highlight for Active Goal */
-.active-goal {
-  border: 2px solid #4caf50; /* Green border */
-  background-color: #e8f5e9; /* Light green background */
-  box-shadow: 0px 4px 8px rgba(0, 128, 0, 0.2); /* Subtle shadow */
-}
-
-.active-goal h2 {
-  color: #388e3c; /* Darker green for text */
-}
-
-.active-goal p {
-  color: #2e7d32; /* Slightly darker green for duration */
-}
-
-
-/* Credentials Page Container */
-.credentials-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background-color: #f9f9f9;
-  padding: 20px;
-}
-
-/* Header Styles */
-.credentials-title {
-  font-size: 2rem;
-  font-weight: bold;
-  margin-bottom: 10px;
-}
-
-.credentials-description {
-  font-size: 1rem;
-  color: #555;
-  margin-bottom: 30px;
-  /* text-align: center; */
-}
-/* Form Styles */
-.credentials-form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  width: 100%;
-  max-width: 400px; /* Ensures form doesn't exceed this width */
-  margin: 0 auto; /* Center form horizontally */
-}
-
-/* File Upload Styles */
-.file-upload-label {
-  display: block;
-  margin-bottom: 10px;
-  font-size: 1rem;
-  color: #ccc; /* Green text */
-  cursor: pointer;
-}
-
-.file-upload-input {
-  display: none; /* Hide the default file input */
-}
-
-.file-upload-label:hover {
-  text-decoration: underline; /* Underline on hover for better UX */
-}
-
-/* Input Fields */
-.input-field,
-.textarea-field {
-  width: 100%; /* Take full width of the parent container */
-  padding: 10px;
-  font-size: 1rem;
-  border-radius: 5px;
-  border: 1px solid #ccc;
-}
-
-.textarea-field {
-  height: 100px; /* Larger height for textarea */
-}
-
-.input-field:focus,
-.textarea-field:focus {
-  outline: none;
-  border-color: #4caf50; /* Green border on focus */
-}
-
-/* Button Styles */
-.btn {
-  padding: 10px;
-  font-size: 1rem;
-  font-weight: bold;
-  color: white;
-  border-radius: 5px;
-}
-
-.save-btn {
-  background-color: #4caf50; /* Green button */
-}
-
-.save-btn:hover {
-  background-color: #45a049; /* Slightly darker green on hover */
-}
-
-
-/* Modal Styles */
-/* Modal Overlay */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* Modal Box */
-.modal {
-  background-color: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  width: calc(100% - 40px);
-  max-width: 400px;
-  box-shadow: rgba(0, 0, 0, 0.2) 0px 4px 10px;
-}
-
-.modal h2 {
-  font-size: 1.5rem;
-  margin-bottom: 10px;
-}
-
-.modal p {
-  font-size: 1rem;
-}
-
-.modal-divider {
-  border: none;
-  border-top: 1px solid #e0e0e0; /* Subtle gray divider */
-  margin: 20px auto;
-}
-
-/* Modal Buttons */
-.modal-buttons {
-  display: flex;
-  justify-content: space-between;
-}
-
-.modal-buttons .btn {
-  padding: 10px;
-}
-
-.log-btn {
-  background-color: #4caf50; /* Green for logging */
-}
-
-.log-btn:hover {
-  background-color: #45a049; /* Darker green on hover */
-}
-
-.discard-btn {
-  background-color: #f44336; /* Red for discard */
-}
-
-.discard-btn:hover {
-  background-color: #e53935; /* Darker red on hover */
-}
-
-/* Adjust Section */
-.adjust-section {
-  margin-top: 20px;
-}
-
-.adjust-section p {
-  font-size: 1rem;
-}
-
-/* Adjust Controls */
-.adjust-controls {
-  display: flex;
-  gap: 10px; /* Space between the input and button */
-  align-items: center;
-  width: 100%; /* Full width of parent */
-  flex-wrap: wrap; /* Allow items to wrap if space is tight */
-}
-
-.adjust-input {
-  flex-grow: 1;           /* Take up remaining space */
-  padding: 8px;
-  font-size: 1rem;
-  border-radius: 5px;
-  border: 1px solid #ccc;
-}
-
-/* Ensure the Adjust & Log button is sized appropriately */
-.adjust-save-btn {
-  padding: 8px 16px;
-  font-size: 1rem;
-  font-weight: bold;
-  background-color: #a7d4a8;
-  color: white;
-  border: none;
-  border-radius: 5px;
-}
-
-/* Hover state for the button */
-.adjust-save-btn:hover {
-  background-color: #8bd28d;
-}
-
-/* Tooltip Bubble */
-.tooltip-bubble {
-  position: absolute;
-  top: -35px; /* Position above the input */
-  left: 10px; /* Slightly offset from the left */
-  background-color: #f44336; /* Red background for error */
-  color: white; /* White text */
-  padding: 5px 10px;
-  border-radius: 5px;
-  font-size: 0.9rem;
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
-}
-
-/* Input Container (for Tooltip Positioning) */
-.input-container {
-  position: relative; /* Allows tooltip to position relative to this container */
-}
-
-/* Input Error Styling */
-.input-error {
-  border-color: #f44336; /* Red border for invalid input */
-}
-
-/* Global CSS addition for chart styling */
-.chart-container {
-  padding: 10px;
-}
-
-.chart-wrapper {
-  width: 100%;
-  max-width: 600px;
-  margin: 40px auto;
-  padding: 20px;
-  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
-  border-radius: 8px;
-}
-
-.chart-title {
-  text-align: center;
-  margin-bottom: 20px;
-  font-size: 1.5rem;
-}
-
-/* Updated Navbar Styles for a minimal, non-intrusive look */
-.navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  /* Use a background that nearly matches the page background but with slight translucency */
-  background-color: rgba(249, 249, 249, 0.8);
-  /* Remove a heavy drop shadow; use a very subtle border to separate from main content */
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  padding: 8px 20px; /* Provide some horizontal padding so it isn't stuck to screen edges */
-  z-index: 1000;
-  text-align: left;
-  font-family: Helvetica, Arial, sans-serif;
-}
-
-.navbar a {
-  font-size: 1.8rem;
-  font-weight: 600;
-  color: #333; /* Use a dark gray instead of pure black */
-  text-decoration: none;
-}
-
-/* Optional: remove default hover effects if needed */
-.navbar a:hover {
-  color: #333;
-  text-decoration: none;
-}
+@import "tailwindcss";
 
 /* ===========================================================================
- * Part A additions.
+ * focus-log — "Instrument"
  *
- * Deliberately plain: Part B replaces this whole stylesheet with Tailwind v4 +
- * shadcn. These rules exist so the rebuilt pages are usable and accessible now,
- * not to be a design system.
+ * Design intent: a precision instrument, lamp-lit. This app is used two ways —
+ * five seconds to start a timer, five minutes on a Sunday to reflect — so the
+ * running numerals are the hero object and everything else recedes.
+ *
+ * Ground is a *warm* near-black (#0B0A09 has red in it), not the blue-black
+ * that dark UIs default to. The accent is ember: the colour of a filament, of
+ * attention. Numerals are always tabular mono so nothing shifts as digits tick.
  * ========================================================================= */
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* Every interactive element must have a visible focus ring; the old stylesheet
-   had none at all. */
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-select:focus-visible {
-  outline: 3px solid #1a73e8;
-  outline-offset: 2px;
-}
-
-/* 100dvh avoids the mobile-Safari address-bar bug that 100vh has. */
-.goal-page-container,
-.credentials-container {
-  min-height: 100dvh;
-}
-
-.navbar {
-  display: flex;
-  gap: 16px;
-  align-items: baseline;
-}
-
-.navbar a {
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-/* --- home ---------------------------------------------------------------- */
-
-.home-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 24px;
-}
-
-.home-today {
-  color: #555;
-  margin: 0;
-}
-
-.home-settings-link {
-  font-size: 0.95rem;
-  text-decoration: underline;
-}
-
-.goal-subtitle {
-  color: #666;
-  text-align: center;
-  margin: 0 0 8px;
-}
-
-.goal-card-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-top: 10px;
-}
-
-.goal-card-actions .btn {
-  padding: 8px 14px;
-  background-color: #eee;
-  color: #222;
-  text-decoration: none;
-}
-
-.goal-card-actions .start-btn {
-  background-color: #4caf50;
-  color: #fff;
-}
-
-.goal-progress {
-  width: 100%;
-  height: 8px;
-  background-color: #e8e8e8;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.goal-progress > span {
-  display: block;
-  height: 100%;
-  background-color: #4caf50;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 48px 20px;
-}
-
-/* --- timer --------------------------------------------------------------- */
-
-.timer-display {
-  text-align: center;
-}
-
-.timer-display p {
-  /* Tabular figures stop the display jittering as digits change. */
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-geist-mono), monospace;
-  margin: 0;
-}
-
-.timer-phase {
-  display: block;
-  font-size: 1rem;
-  font-weight: 400;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.warning-message {
-  max-width: 520px;
-  margin: 12px auto;
-  padding: 10px 14px;
-  border-radius: 6px;
-  background-color: #fff4e5;
-  border: 1px solid #ffcc80;
-  text-align: center;
-}
-
-.success-message {
-  max-width: 520px;
-  margin: 12px auto;
-  padding: 10px 14px;
-  border-radius: 6px;
-  background-color: #e8f5e9;
-  border: 1px solid #a5d6a7;
-  text-align: center;
-}
-
-.modal {
-  max-height: 90dvh;
-  overflow-y: auto;
-}
-
-.modal label {
-  display: block;
-  margin-top: 12px;
-  font-weight: 600;
-}
-
-/* --- session table ------------------------------------------------------- */
-
-.session-list {
-  width: 100%;
-  max-width: 800px;
-  margin: 32px auto;
-  padding: 0 16px;
-}
-
-.session-list table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.session-list th,
-.session-list td {
-  text-align: left;
-  padding: 8px 6px;
-  border-bottom: 1px solid #e6e6e6;
-  vertical-align: middle;
-}
-
-.session-list .adjust-input {
-  width: 5.5rem;
-}
-
-.session-list .discard-btn {
-  padding: 6px 10px;
-  font-size: 0.85rem;
-}
-
-/* --- setup and settings -------------------------------------------------- */
-
-.setup-container,
-.settings-container {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 32px 20px 64px;
-}
-
-.setup-lead {
-  color: #555;
-}
-
-.setup-steps {
-  list-style: none;
-  padding: 0;
-}
-
-.setup-steps > li {
-  margin-bottom: 28px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #ececec;
-}
-
-.setup-steps h2 {
-  font-size: 1.15rem;
-  margin-bottom: 6px;
-}
-
-.setup-label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.setup-help {
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.setup-ok {
-  color: #2e7d32;
-  font-weight: 600;
-}
-
-.setup-warn {
-  color: #b26a00;
-}
-
-.setup-error {
-  margin-top: 16px;
-  padding: 10px 14px;
-  border-radius: 6px;
-  background-color: #fdecea;
-  border: 1px solid #f5a29b;
-  color: #b3261e;
-}
-
-.setup-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.setup-actions button {
-  padding: 10px 18px;
-  font-size: 1rem;
-  border-radius: 5px;
-  border: 1px solid #ccc;
-  background-color: #fff;
-  font-weight: 600;
-}
-
-.setup-actions .save-btn {
-  border-color: transparent;
-}
-
-.setup-actions button[disabled] {
-  opacity: 0.5;
-}
-
-.setup-report ul {
-  list-style: none;
-  padding: 0;
-}
-
-.check {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
-  border-left: 4px solid #ccc;
-  margin-bottom: 8px;
-  background-color: #fafafa;
-}
-
-.check-ok {
-  border-left-color: #4caf50;
-}
-.check-warning {
-  border-left-color: #ffa000;
-}
-.check-error {
-  border-left-color: #f44336;
-}
-
-.check em {
-  color: #444;
-}
-
-.settings-goals {
-  list-style: none;
-  padding: 0;
-}
-
-.settings-goals > li {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  padding: 12px 0;
-  border-bottom: 1px solid #ececec;
-}
-
-.settings-goals input.input-field {
-  flex: 1 1 200px;
-}
-
-.settings-target {
-  width: 6rem;
-}
-
-.settings-add {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.settings-facts {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 6px 16px;
-}
-
-.settings-facts dt {
-  font-weight: 600;
-  color: #555;
-}
-
-.settings-facts dd {
-  margin: 0;
-}
-
-.settings-danger {
-  margin-top: 12px;
-  padding: 14px;
-  border: 1px solid #f5a29b;
-  border-radius: 6px;
-  background-color: #fdecea;
-}
-
-/* --- sync badge ---------------------------------------------------------- */
-
-.sync-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.sync-badge button {
-  border: 1px solid #ccc;
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 0.85rem;
-  background-color: #fff;
-}
-
-.sync-pending button {
-  border-color: #ffa000;
-  color: #b26a00;
-}
-.sync-offline button {
-  border-color: #999;
-  color: #555;
-}
-.sync-error button {
-  border-color: #f44336;
-  color: #b3261e;
-}
-.sync-ok button {
-  border-color: #a5d6a7;
-  color: #2e7d32;
-}
-
-.sync-note {
-  font-size: 0.85rem;
-  color: #666;
-  text-align: center;
-}
-
-/* --- stats --------------------------------------------------------------- */
-
-.stats-page {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px 20px 64px;
-}
-
-.stat-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin: 0 0 32px;
-}
-
-.stat-tiles > div {
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.stat-tiles dt {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #777;
-}
-
-.stat-tiles dd {
-  margin: 4px 0 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.heatmap-wrap {
-  /* Wide content scrolls inside its own container rather than making the page
-     scroll horizontally. */
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
-
-.heatmap-body {
-  display: flex;
-  gap: 6px;
-  align-items: start;
-}
-
-.heatmap-weekdays {
-  display: grid;
-  grid-template-rows: repeat(7, 1fr);
-  gap: 3px;
-  font-size: 0.7rem;
-  color: #777;
-}
-
-.heatmap-weekdays span {
-  height: 14px;
-  line-height: 14px;
-}
-
-.heatmap-grid {
-  display: grid;
-  grid-template-rows: repeat(7, 1fr);
-  grid-auto-flow: column;
-  gap: 3px;
-  min-width: max-content;
-}
-
-.heatmap-months {
-  display: grid;
-  font-size: 0.7rem;
-  color: #777;
-  margin-left: 32px;
-  margin-bottom: 4px;
-  min-width: max-content;
-}
-
-.heatmap-cell {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  background-color: #ebedf0;
-  display: inline-block;
-}
-
-.heatmap-cell.level-1 {
-  background-color: #c6e48b;
-}
-.heatmap-cell.level-2 {
-  background-color: #7bc96f;
-}
-.heatmap-cell.level-3 {
-  background-color: #239a3b;
-}
-.heatmap-cell.level-4 {
-  background-color: #196127;
-}
-
-.heatmap-cell.is-future {
-  background-color: transparent;
-  border: 1px dashed #ddd;
-}
-
-.heatmap-legend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  font-size: 0.8rem;
-  color: #777;
-}
-
-.trend {
-  display: flex;
-  gap: 6px;
-  align-items: flex-end;
-  height: 180px;
-}
-
-.trend-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100%;
-}
-
-.trend-bar-track {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: flex-end;
-}
-
-.trend-bar {
-  width: 100%;
-  background-color: #4caf50;
-  border-radius: 3px 3px 0 0;
-  min-height: 2px;
-}
-
-.trend-label {
-  font-size: 0.7rem;
-  color: #777;
-  margin-top: 4px;
-}
-
-/* --- dark mode ----------------------------------------------------------- */
+@theme {
+  /* --- type ------------------------------------------------------------- */
+  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  /* --- ground & surfaces (warm-black, ascending) ------------------------ */
+  --color-ink-950: #0b0a09;
+  --color-ink-900: #121110;
+  --color-ink-850: #191716;
+  --color-ink-800: #201d1b;
+  --color-ink-700: #2b2724;
+  --color-ink-600: #3a352f;
+  --color-ink-500: #554e46;
+
+  /* --- text (warm cream, never pure white) ------------------------------ */
+  --color-cream-50: #f7f3ec;
+  --color-cream-200: #ded7cc;
+  --color-cream-400: #a49a8d;
+  --color-cream-600: #6f665c;
+
+  /* --- ember: the accent, reserved for *active* focus ------------------- */
+  --color-ember-300: #ffc48a;
+  --color-ember-400: #ffa347;
+  --color-ember-500: #ff7a18;
+  --color-ember-600: #d95f0c;
+  --color-ember-900: #3d1e08;
+
+  /* --- semantic --------------------------------------------------------- */
+  --color-success: #7fb069;
+  --color-warn: #e8b04b;
+  --color-danger: #d9584a;
+
+  /* --- goal palette: desaturated so eight can coexist on the dark ground */
+  --color-goal-1: #ff8c42;
+  --color-goal-2: #e8b04b;
+  --color-goal-3: #7fb069;
+  --color-goal-4: #4bab9c;
+  --color-goal-5: #6a8caf;
+  --color-goal-6: #9b7fb0;
+  --color-goal-7: #c4756b;
+  --color-goal-8: #8a9a5b;
+
+  --radius-card: 14px;
+
+  /* Springy, slightly overshooting — mechanical rather than soft. */
+  --ease-instrument: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------ */
+
+@layer base {
+  * {
+    border-color: var(--color-ink-700);
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
 
-@media (prefers-color-scheme: dark) {
   body {
-    background-color: #16181c;
-    color: #e6e6e6;
+    background-color: var(--color-ink-950);
+    color: var(--color-cream-50);
+    font-family: var(--font-sans);
+    /* A faint warm bloom from the top-left, as if a lamp is on. Fixed so it
+       does not travel while scrolling. */
+    background-image:
+      radial-gradient(90rem 50rem at 8% -10%, rgba(255, 122, 24, 0.055), transparent 60%),
+      radial-gradient(60rem 40rem at 100% 0%, rgba(107, 140, 175, 0.03), transparent 55%);
+    background-attachment: fixed;
+    font-feature-settings: "ss01", "cv01";
+    -webkit-font-smoothing: antialiased;
   }
-  a,
-  a:visited {
-    color: #e6e6e6;
+
+  /* Very fine grain, to keep large flat areas from looking like dead plastic.
+     Pointer-events none and fixed so it never interferes. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0.022;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
   }
-  .goal-page-container,
-  .credentials-container {
-    background-color: #16181c;
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.01em;
   }
-  .goal-card,
-  .stat-tiles > div,
-  .modal {
-    background-color: #1f2226;
-    box-shadow: none;
-    border: 1px solid #2c3035;
+
+  /* Every numeral in the app is tabular, so digits never shift width. */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "zero" 1;
   }
-  .goal-content p,
-  .setup-help,
-  .home-today,
-  .goal-subtitle {
-    color: #a0a4ab;
+
+  :focus-visible {
+    outline: 2px solid var(--color-ember-400);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
-  .input-field,
-  .adjust-input {
-    background-color: #1f2226;
-    border-color: #3a3f45;
-    color: #e6e6e6;
+
+  ::selection {
+    background: var(--color-ember-500);
+    color: var(--color-ink-950);
   }
-  .navbar {
-    background-color: rgba(22, 24, 28, 0.85);
-    border-bottom-color: #2c3035;
+
+  /* Inputs inherit the instrument feel rather than the browser's. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    opacity: 0.25;
   }
-  .navbar a {
-    color: #e6e6e6;
+}
+
+/* ---------------------------------------------------------------------------
+ * Motion
+ *
+ * One orchestrated entrance beats scattered micro-interactions, so page content
+ * reveals in a short stagger via --i. Everything respects prefers-reduced-motion.
+ * ------------------------------------------------------------------------ */
+
+@layer utilities {
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
-  .session-list th,
-  .session-list td,
-  .settings-goals > li,
-  .setup-steps > li {
-    border-bottom-color: #2c3035;
+
+  .rise {
+    animation: rise 0.55s var(--ease-instrument) backwards;
+    animation-delay: calc(var(--i, 0) * 55ms);
   }
-  .check {
-    background-color: #1f2226;
+
+  /* The filament breathing while a session runs. Slow, so it reads as "alive"
+     rather than "alert". */
+  @keyframes breathe {
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.85;
+      transform: scale(1.04);
+    }
   }
-  .heatmap-cell {
-    background-color: #23262b;
+
+  .breathe {
+    animation: breathe 4.5s ease-in-out infinite;
   }
-  .active-goal {
-    background-color: #1b2e1e;
+
+  /* A one-shot tick on each second, applied to the seconds group. */
+  @keyframes tick {
+    from {
+      opacity: 0.55;
+    }
+    to {
+      opacity: 1;
+    }
   }
-  .active-goal h2,
-  .active-goal p {
-    color: #a5d6a7;
+
+  .tick {
+    animation: tick 0.9s var(--ease-instrument);
+  }
+
+  @keyframes sweep {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Indeterminate sync shimmer. */
+  .sweep::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 163, 71, 0.35), transparent);
+    animation: sweep 1.4s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Components
+ * ------------------------------------------------------------------------ */
+
+@layer components {
+  /* Hairline-bordered panel. The 1px inset highlight is what makes it read as
+     a machined surface rather than a flat rectangle. */
+  .panel {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--color-ink-850) 96%, white),
+      var(--color-ink-900)
+    );
+    border: 1px solid var(--color-ink-700);
+    border-radius: var(--radius-card);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      0 12px 32px -18px rgba(0, 0, 0, 0.9);
+  }
+
+  .panel-hover {
+    transition:
+      border-color 0.25s var(--ease-instrument),
+      transform 0.25s var(--ease-instrument),
+      box-shadow 0.25s var(--ease-instrument);
+  }
+
+  .panel-hover:hover {
+    border-color: var(--color-ink-600);
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 2px 4px rgba(0, 0, 0, 0.5),
+      0 20px 44px -20px rgba(0, 0, 0, 1);
+  }
+
+  /* Small uppercase label used for every field and stat caption. */
+  .label {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-cream-600);
+  }
+
+  /* Etched rule with a bright top edge — a seam in the instrument's casing. */
+  .seam {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--color-ink-700) 15%,
+      var(--color-ink-700) 85%,
+      transparent
+    );
   }
 }

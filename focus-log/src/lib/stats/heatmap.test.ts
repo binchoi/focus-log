@@ -105,6 +105,22 @@ describe("buildHeatmap", () => {
     expect([...weeks].sort((a, b) => a - b)).toEqual(weeks);
   });
 
+  it("suppresses a month label that would collide with the previous one", () => {
+    // The Monday snap-back can put two month starts one column apart, which
+    // rendered as "MarApr" overlapping in the same place.
+    const layout = buildHeatmap({ ...base, from: "2026-03-30", to: "2026-08-31" });
+    const weeks = layout.monthLabels.map((m) => m.week);
+    for (let i = 1; i < weeks.length; i += 1) {
+      expect(weeks[i]! - weeks[i - 1]!).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("still labels a later month after suppressing a crowded one", () => {
+    const layout = buildHeatmap({ ...base, from: "2026-03-30", to: "2026-08-31" });
+    // Aug is far from Apr, so it must appear even if Apr was suppressed.
+    expect(layout.monthLabels.map((m) => m.label)).toContain("Aug");
+  });
+
   it("handles an empty range without throwing", () => {
     const layout = buildHeatmap({ ...base, from: "2026-07-10", to: "2026-07-01" });
     expect(layout.weeks).toBe(0);

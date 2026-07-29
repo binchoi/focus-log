@@ -4,27 +4,40 @@
  * Settings.
  *
  * Exists partly to fix a dead end found in exploration: once credentials were
- * saved, the old app had no route back to /credentials at all — the only
- * reference was an automatic redirect when credentials were *absent*, so
- * changing spreadsheet meant clearing localStorage by hand.
+ * saved, the old app had no route back to /credentials at all, so changing
+ * spreadsheet meant clearing localStorage by hand.
  */
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { clearCredentials } from "@lib/auth/credentials";
 import { createGoal, deleteGoal, listGoals, updateGoal } from "@lib/store/repo";
 import { formatTotal } from "@lib/time";
+import {
+  Alert,
+  Button,
+  Dialog,
+  DialogContent,
+  Field,
+  GOAL_COLORS,
+  Input,
+  Panel,
+  cn,
+  goalColor,
+} from "@/components/ui";
+import { SyncDetail } from "../sync-pill";
 import { useApp } from "../providers";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { credentials, status, syncNow, notifyMutation, refreshCredentials } = useApp();
+  const { credentials, status, notifyMutation } = useApp();
 
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | undefined>();
-  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
   const goals = useLiveQuery(() => listGoals(), [], undefined) ?? [];
 
@@ -42,190 +55,257 @@ export default function SettingsPage() {
   );
 
   return (
-    <main className="settings-container">
-      <nav className="navbar">
-        <Link href="/">home</Link>
-      </nav>
+    <div className="mx-auto max-w-[820px] px-5 py-8 md:px-8 md:py-12">
+      <header className="rise" style={{ "--i": 0 } as React.CSSProperties}>
+        <p className="label">Configuration</p>
+        <h1 className="mt-1.5 font-display text-4xl text-cream-50">Settings</h1>
+      </header>
 
-      <h1>Settings</h1>
+      {error && (
+        <Alert tone="danger" className="mt-6">
+          {error}
+        </Alert>
+      )}
 
-      <section>
-        <h2>Goals</h2>
-        <p className="setup-help">
-          Create, rename and archive goals here — no need to open the spreadsheet.
+      {/* ---------------- goals ---------------- */}
+      <section className="rise mt-10" style={{ "--i": 1 } as React.CSSProperties}>
+        <h2 className="font-display text-2xl text-cream-50">Goals</h2>
+        <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-cream-400">
+          Create, rename, retarget and archive goals here. None of this needs the spreadsheet.
         </p>
 
         <form
+          className="mt-5 flex flex-wrap items-end gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             const title = newTitle.trim();
             if (!title) return;
             void run(async () => {
-              await createGoal({ title, sort_order: goals.length });
+              await createGoal({
+                title,
+                sort_order: goals.length,
+                color: GOAL_COLORS[goals.length % GOAL_COLORS.length],
+              });
               setNewTitle("");
             });
           }}
-          className="settings-add"
         >
-          <label htmlFor="new-goal" className="setup-label">
-            New goal
-          </label>
-          <input
-            id="new-goal"
-            className="input-field"
-            value={newTitle}
-            onChange={(event) => setNewTitle(event.target.value)}
-            placeholder="e.g. Deep work"
-            maxLength={200}
-          />
-          <button type="submit" className="btn save-btn" disabled={!newTitle.trim()}>
-            Add goal
-          </button>
+          <Field label="New goal" htmlFor="new-goal" className="min-w-[16rem] flex-1">
+            <Input
+              id="new-goal"
+              value={newTitle}
+              onChange={(event) => setNewTitle(event.target.value)}
+              placeholder="e.g. Deep work"
+              maxLength={200}
+            />
+          </Field>
+          <Button type="submit" variant="primary" disabled={!newTitle.trim()}>
+            <Plus size={15} />
+            Add
+          </Button>
         </form>
 
         {goals.length === 0 ? (
-          <p className="setup-help">No goals yet. Add one above to start logging focus time.</p>
+          <Panel className="mt-5 px-5 py-10 text-center">
+            <p className="text-sm text-cream-400">
+              No goals yet. Add one above to start logging focus time.
+            </p>
+          </Panel>
         ) : (
-          <ul className="settings-goals">
-            {goals.map((goal) => (
-              <li key={goal.goal_id}>
-                <input
-                  aria-label={`Title for ${goal.title}`}
-                  className="input-field"
-                  defaultValue={goal.title}
-                  onBlur={(event) => {
-                    const title = event.target.value.trim();
-                    if (title && title !== goal.title) {
-                      void run(() => updateGoal(goal.goal_id, { title }));
-                    }
-                  }}
-                />
-                <label>
-                  Weekly target
-                  <input
-                    type="number"
-                    min={0}
-                    step={30}
-                    aria-label={`Weekly target minutes for ${goal.title}`}
-                    className="input-field settings-target"
-                    defaultValue={goal.weekly_target_minutes}
-                    onBlur={(event) => {
-                      const minutes = Number(event.target.value);
-                      if (Number.isFinite(minutes) && minutes >= 0 && minutes !== goal.weekly_target_minutes) {
-                        void run(() => updateGoal(goal.goal_id, { weekly_target_minutes: minutes }));
+          <ul className="mt-5 space-y-2.5">
+            {goals.map((goal) => {
+              const color = goalColor(goal.goal_id, goal.color);
+              return (
+                <li key={goal.goal_id}>
+                  <Panel className="flex flex-wrap items-end gap-3 p-4">
+                    <span
+                      aria-hidden="true"
+                      className="mb-3 h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ background: color }}
+                    />
+
+                    <Field label="Title" className="min-w-[12rem] flex-1">
+                      <Input
+                        aria-label={`Title for ${goal.title}`}
+                        defaultValue={goal.title}
+                        maxLength={200}
+                        onBlur={(event) => {
+                          const title = event.target.value.trim();
+                          if (title && title !== goal.title) {
+                            void run(() => updateGoal(goal.goal_id, { title }));
+                          }
+                        }}
+                      />
+                    </Field>
+
+                    <Field
+                      label="Weekly target"
+                      className="w-32"
+                      hint={
+                        goal.weekly_target_minutes > 0
+                          ? formatTotal(goal.weekly_target_minutes * 60)
+                          : "no target"
                       }
-                    }}
-                  />
-                  <span className="setup-help">{formatTotal(goal.weekly_target_minutes * 60)}/week</span>
-                </label>
-                <button
-                  type="button"
-                  className="btn discard-btn"
-                  onClick={() => void run(() => deleteGoal(goal.goal_id))}
-                >
-                  Archive
-                </button>
-              </li>
-            ))}
+                    >
+                      <Input
+                        type="number"
+                        min={0}
+                        step={30}
+                        aria-label={`Weekly target minutes for ${goal.title}`}
+                        className="num"
+                        defaultValue={goal.weekly_target_minutes}
+                        onBlur={(event) => {
+                          const minutes = Number(event.target.value);
+                          if (
+                            Number.isFinite(minutes) &&
+                            minutes >= 0 &&
+                            minutes !== goal.weekly_target_minutes
+                          ) {
+                            void run(() =>
+                              updateGoal(goal.goal_id, { weekly_target_minutes: minutes }),
+                            );
+                          }
+                        }}
+                      />
+                    </Field>
+
+                    <div className="mb-0.5 flex items-center gap-1.5">
+                      {GOAL_COLORS.map((swatch) => (
+                        <button
+                          key={swatch}
+                          type="button"
+                          aria-label={`Set ${goal.title} colour`}
+                          onClick={() => void run(() => updateGoal(goal.goal_id, { color: swatch }))}
+                          className={cn(
+                            "h-4 w-4 rounded-full transition-transform duration-150 hover:scale-125",
+                            color.toLowerCase() === swatch && "ring-2 ring-cream-200 ring-offset-2 ring-offset-ink-900",
+                          )}
+                          style={{ background: swatch }}
+                        />
+                      ))}
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title={`Archive ${goal.title}`}
+                      aria-label={`Archive ${goal.title}`}
+                      className="mb-0.5 hover:text-danger"
+                      onClick={() => void run(() => deleteGoal(goal.goal_id))}
+                    >
+                      <Trash2 size={15} />
+                    </Button>
+                  </Panel>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
 
-      <section>
-        <h2>Sync</h2>
-        <dl className="settings-facts">
-          <dt>Spreadsheet</dt>
-          <dd>
-            {credentials ? (
-              <a
-                href={`https://docs.google.com/spreadsheets/d/${credentials.spreadsheetId}/edit`}
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                Open in Google Sheets
-              </a>
-            ) : (
-              "Not connected"
-            )}
-          </dd>
-          <dt>Service account</dt>
-          <dd>{credentials?.clientEmail ?? "—"}</dd>
-          <dt>Queued changes</dt>
-          <dd>{status.pending === 0 ? "All synced" : `${status.pending} waiting to upload`}</dd>
-          <dt>Last synced</dt>
-          <dd>{status.lastSyncedAt ? status.lastSyncedAt.toLocaleString() : "Never"}</dd>
-        </dl>
-
-        {status.offlineReason && (
-          <p className="setup-warn" role="status">
-            Offline — your changes are saved on this device and will upload automatically.
-          </p>
-        )}
-        {status.error && (
-          <p className="setup-error" role="alert">
-            {status.error}
-          </p>
-        )}
-        {status.malformedRows > 0 && (
-          <p className="setup-warn" role="status">
-            {status.malformedRows} row(s) in the spreadsheet could not be read and were skipped.
-          </p>
-        )}
-
-        <button type="button" onClick={() => void syncNow()} disabled={status.running}>
-          {status.running ? "Syncing…" : "Sync now"}
-        </button>
-      </section>
-
-      <section>
-        <h2>Connection</h2>
-        <p className="setup-help">
-          Change spreadsheet or replace your service account key. Your focus history stays on this
-          device and in the spreadsheet.
-        </p>
-        <Link href="/setup" className="btn">
-          Reconnect or change spreadsheet
-        </Link>
-
-        {!confirmingReset ? (
-          <button type="button" className="btn discard-btn" onClick={() => setConfirmingReset(true)}>
-            Disconnect
-          </button>
-        ) : (
-          <div role="alertdialog" aria-label="Confirm disconnect" className="settings-danger">
-            <p>
-              Disconnect this browser? Your spreadsheet is untouched, but{" "}
-              {status.pending > 0 ? (
-                <strong>{status.pending} change(s) not yet uploaded will be lost.</strong>
+      {/* ---------------- sync ---------------- */}
+      <section className="rise mt-12" style={{ "--i": 2 } as React.CSSProperties}>
+        <h2 className="font-display text-2xl text-cream-50">Sync</h2>
+        <Panel className="mt-4 p-5">
+          <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-[max-content_1fr]">
+            <dt className="label self-center">Spreadsheet</dt>
+            <dd className="text-sm">
+              {credentials ? (
+                <a
+                  href={`https://docs.google.com/spreadsheets/d/${credentials.spreadsheetId}/edit`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="inline-flex items-center gap-1.5 text-ember-400 underline-offset-4 hover:underline"
+                >
+                  Open in Google Sheets
+                  <ExternalLink size={13} />
+                </a>
               ) : (
-                "this device will forget its credentials."
+                <span className="text-cream-600">Not connected</span>
               )}
-            </p>
-            <button
-              type="button"
-              className="btn discard-btn"
-              onClick={() => {
-                void (async () => {
-                  await clearCredentials();
-                  await refreshCredentials();
-                  router.push("/setup");
-                })();
-              }}
-            >
-              Yes, disconnect
-            </button>
-            <button type="button" onClick={() => setConfirmingReset(false)}>
-              Cancel
-            </button>
-          </div>
-        )}
+            </dd>
+
+            <dt className="label self-center">Service account</dt>
+            <dd className="break-all text-sm text-cream-200">{credentials?.clientEmail ?? "—"}</dd>
+
+            <dt className="label self-center">Queued</dt>
+            <dd className="text-sm text-cream-200">
+              {status.pending === 0 ? (
+                "Everything uploaded"
+              ) : (
+                <>
+                  <span className="num">{status.pending}</span> change
+                  {status.pending === 1 ? "" : "s"} waiting
+                </>
+              )}
+            </dd>
+
+            <dt className="label self-center">Last synced</dt>
+            <dd className="text-sm text-cream-200">
+              {status.lastSyncedAt ? status.lastSyncedAt.toLocaleString() : "Never"}
+            </dd>
+          </dl>
+
+          <div className="seam my-5" />
+          <SyncDetail />
+        </Panel>
       </section>
 
-      {error && (
-        <p className="setup-error" role="alert">
-          {error}
+      {/* ---------------- connection ---------------- */}
+      <section className="rise mt-12" style={{ "--i": 3 } as React.CSSProperties}>
+        <h2 className="font-display text-2xl text-cream-50">Connection</h2>
+        <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-cream-400">
+          Your private key is stored so that it can sign requests but can never be read back out of
+          this browser, and you are never asked to sign in again.
         </p>
-      )}
-    </main>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Link href="/setup">
+            <Button variant="outline">Change spreadsheet or key</Button>
+          </Link>
+          <Button variant="danger" onClick={() => setConfirmDisconnect(true)}>
+            Disconnect this browser
+          </Button>
+        </div>
+      </section>
+
+      <Dialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
+        <DialogContent
+          title="Disconnect this browser?"
+          description="Your spreadsheet is left completely untouched."
+        >
+          <div className="space-y-4">
+            {status.pending > 0 && (
+              <Alert tone="warn">
+                <span className="num">{status.pending}</span> change
+                {status.pending === 1 ? "" : "s"} have not reached the spreadsheet yet and will be
+                lost. Sync first if you want to keep them.
+              </Alert>
+            )}
+            <p className="text-sm leading-relaxed text-cream-400">
+              This device will forget its credentials and stored sessions. You can reconnect any time
+              with the same key.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="danger"
+                className="flex-1"
+                onClick={() => {
+                  void (async () => {
+                    await clearCredentials();
+                    router.push("/setup");
+                  })();
+                }}
+              >
+                Yes, disconnect
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmDisconnect(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

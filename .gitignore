@@ -1,0 +1,9 @@
+# Google service account keys. These are live credentials with write access to
+# your spreadsheet and they do not expire, so they must never be committed.
+# The *.example.json template is deliberately allowed through.
+service-account*.json
+*-service-account.json
+*credentials*.json
+!*.example.json
+
+.DS_Store
