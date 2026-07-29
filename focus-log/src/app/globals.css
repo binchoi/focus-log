@@ -232,6 +232,13 @@
   /* Hairline-bordered panel. The 1px inset highlight is what makes it read as
      a machined surface rather than a flat rectangle. */
   .panel {
+    /* Always a containing block. Without this, absolutely positioned
+       descendants — notably `sr-only` captions and labels, which are
+       position:absolute — resolve against the document instead of the panel, so
+       they escape any overflow clipping here and stretch the page's scrollWidth.
+       That is how a visually-hidden "Actions" header made the whole document
+       scroll sideways on a phone. */
+    position: relative;
     background: linear-gradient(
       to bottom,
       color-mix(in oklab, var(--color-ink-850) 96%, white),

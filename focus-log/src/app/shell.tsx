@@ -84,6 +84,9 @@ function Rail({ pathname }: { pathname: string }) {
           <Link
             key={href}
             href={href}
+            // The visible label is hidden below md, so without this the link is
+            // an unlabelled icon for anyone using a screen reader on a phone.
+            aria-label={label}
             aria-current={active ? "page" : undefined}
             className={cn(
               "group relative flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm transition-colors duration-200 md:px-3",

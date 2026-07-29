@@ -201,7 +201,7 @@ export default function TodayPage() {
               {goals.map((goal, index) => (
                 <li
                   key={goal.goal_id}
-                  className="rise"
+                  className="rise min-w-0"
                   style={{ "--i": index + 2 } as React.CSSProperties}
                 >
                   <GoalCard
@@ -269,7 +269,7 @@ function GoalCard({
     <Panel
       interactive
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden p-5",
+        "group relative flex h-full min-w-0 flex-col overflow-hidden p-5",
         isActive && "border-ember-500/45",
       )}
     >

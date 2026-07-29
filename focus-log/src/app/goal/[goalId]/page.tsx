@@ -161,7 +161,7 @@ export default function GoalPage() {
       </div>
 
       {/* ---------------- the instrument ---------------- */}
-      <section className="relative flex flex-col items-center pb-10 pt-12 md:pt-16">
+      <section className="relative flex flex-col items-center overflow-hidden pb-10 pt-12 md:pt-16">
         {/* Filament bloom. Breathes while running, still and dim when paused. */}
         <div
           aria-hidden="true"
