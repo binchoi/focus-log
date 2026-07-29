@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Instrument_Sans, Instrument_Serif } from "next/font/google";
+import { Fraunces, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "./providers";
 import { AppShell } from "./shell";
@@ -9,10 +9,19 @@ import { AppShell } from "./shell";
  * origin and the CSP's `font-src 'self'` holds. (The old app pulled a Google
  * Fonts stylesheet cross-origin — render-blocking and CSP-violating.)
  */
-const display = Instrument_Serif({
-  variable: "--font-instrument-serif",
+/**
+ * Fraunces rather than Instrument Serif.
+ *
+ * Instrument Serif is a condensed display face declaring an ascender of ~118%
+ * of the em, so headings read as vertically stretched. Fraunces is the opposite
+ * on both counts — generous width and a large x-height — and its optical-size
+ * axis keeps display sizes from looking spindly. SOFT/WONK add warmth without
+ * tipping into novelty.
+ */
+const display = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
-  weight: "400",
+  axes: ["SOFT", "WONK"],
   display: "swap",
 });
 

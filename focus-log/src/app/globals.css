@@ -14,7 +14,7 @@
 
 @theme {
   /* --- type ------------------------------------------------------------- */
-  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --font-display: var(--font-fraunces), Georgia, serif;
   --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 
@@ -105,8 +105,13 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    font-weight: 400;
-    letter-spacing: -0.01em;
+    /* Fraunces is variable: a little extra weight and a low optical size keep
+       display text solid rather than spindly. SOFT rounds the terminals; WONK
+       stays off to avoid novelty italic-style swashes. */
+    font-weight: 500;
+    font-variation-settings: "SOFT" 30, "WONK" 0;
+    letter-spacing: -0.015em;
+    line-height: 1.05;
   }
 
   /* Every numeral in the app is tabular, so digits never shift width. */
