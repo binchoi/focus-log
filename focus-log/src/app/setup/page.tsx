@@ -11,7 +11,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Check, FileKey, Loader2, TriangleAlert, X } from "lucide-react";
-import { SheetsClient, isValidSpreadsheetId } from "@lib/sheets/client";
+import { SheetsClient, extractSpreadsheetId, isValidSpreadsheetId } from "@lib/sheets/client";
 import {
   CredentialError,
   ServiceAccountTokenProvider,
@@ -22,12 +22,6 @@ import {
 } from "@lib/auth/credentials";
 import { validateConnection, type ValidationReport } from "@lib/auth/validate";
 import { Alert, Button, Field, Input, Panel, cn } from "@/components/ui";
-
-/** Pulls the id out of a pasted spreadsheet URL, or passes an id straight through. */
-export function extractSpreadsheetId(input: string): string {
-  const trimmed = input.trim();
-  return /\/spreadsheets\/d\/([A-Za-z0-9_-]+)/.exec(trimmed)?.[1] ?? trimmed;
-}
 
 export default function SetupPage() {
   const router = useRouter();

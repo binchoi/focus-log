@@ -24,6 +24,16 @@ export function isValidSpreadsheetId(id: unknown): id is string {
 }
 
 /**
+ * Pulls the id out of a pasted spreadsheet URL, or passes a bare id through.
+ * People paste the whole URL far more often than they extract the id, so accept
+ * both rather than making them do string surgery.
+ */
+export function extractSpreadsheetId(input: string): string {
+  const trimmed = input.trim();
+  return /\/spreadsheets\/d\/([A-Za-z0-9_-]+)/.exec(trimmed)?.[1] ?? trimmed;
+}
+
+/**
  * Supplies a bearer token. Implemented by the auth module in Phase 3; kept as
  * an interface so this client is testable without any credentials.
  */

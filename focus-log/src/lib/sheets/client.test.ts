@@ -5,6 +5,7 @@ import {
   SheetsClient,
   SheetsError,
   backoffDelay,
+  extractSpreadsheetId,
   isValidSpreadsheetId,
   type TokenProvider,
 } from "./client";
@@ -58,6 +59,30 @@ describe("isValidSpreadsheetId", () => {
     expect(() => new SheetsClient({ spreadsheetId: "../evil", tokens: tokens() })).toThrow(
       /Invalid spreadsheet ID/,
     );
+  });
+});
+
+describe("extractSpreadsheetId", () => {
+  it("pulls the id out of a pasted URL, including the gid fragment form", () => {
+    expect(extractSpreadsheetId(`https://docs.google.com/spreadsheets/d/${VALID_ID}/edit`)).toBe(
+      VALID_ID,
+    );
+    expect(
+      extractSpreadsheetId(
+        `https://docs.google.com/spreadsheets/d/${VALID_ID}/edit?gid=1379805797#gid=1379805797`,
+      ),
+    ).toBe(VALID_ID);
+    expect(extractSpreadsheetId(`https://docs.google.com/spreadsheets/d/${VALID_ID}`)).toBe(VALID_ID);
+  });
+
+  it("passes a bare id through, trimming whitespace", () => {
+    expect(extractSpreadsheetId(VALID_ID)).toBe(VALID_ID);
+    expect(extractSpreadsheetId(`  ${VALID_ID}  `)).toBe(VALID_ID);
+  });
+
+  it("returns the input unchanged when there is no id to find, so validation can reject it", () => {
+    expect(extractSpreadsheetId("not a url")).toBe("not a url");
+    expect(isValidSpreadsheetId(extractSpreadsheetId("not a url"))).toBe(false);
   });
 });
 

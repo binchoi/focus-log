@@ -49,8 +49,9 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
+  // e2e/ is deliberately NOT excluded: a broken Playwright spec should fail
+  // typecheck in CI rather than only at test runtime.
   "exclude": [
-    "node_modules",
-    "e2e"
+    "node_modules"
   ]
 }

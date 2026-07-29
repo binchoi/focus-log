@@ -140,6 +140,15 @@ export function buildHeatmap(options: BuildHeatmapOptions): HeatmapLayout {
   };
 }
 
+/**
+ * Monday-based start of the week containing `instant`, as a local date.
+ * Monday rather than Sunday because a "working week" is the useful unit here.
+ */
+export function startOfWeek(localToday: string): string {
+  const weekday = new Date(`${localToday}T00:00:00.000Z`).getUTCDay(); // 0 = Sunday
+  return addDays(localToday, -((weekday + 6) % 7));
+}
+
 /** Consecutive days ending today (or yesterday) with any focus logged. */
 export function currentStreak(secondsByDate: Map<string, number>, today: string): number {
   let streak = 0;

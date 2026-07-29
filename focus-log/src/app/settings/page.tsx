@@ -143,7 +143,7 @@ export default function SettingsPage() {
                       className="w-32"
                       hint={
                         goal.weekly_target_minutes > 0
-                          ? formatTotal(goal.weekly_target_minutes * 60)
+                          ? `${formatTotal(goal.weekly_target_minutes * 60)} per week`
                           : "no target"
                       }
                     >

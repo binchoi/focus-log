@@ -19,6 +19,8 @@ import { formatDuration } from "@lib/time";
 import { listGoals } from "@lib/store/repo";
 import { cn, goalColor } from "@/components/ui";
 import { SyncPill } from "./sync-pill";
+import { CommandPalette, PaletteHint } from "./command-palette";
+import { PwaBits } from "./pwa";
 import { useApp } from "./providers";
 
 const NAV = [
@@ -33,8 +35,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // /setup is deliberately chromeless: you have no data yet, so a nav rail
   // pointing at empty screens is just noise.
-  if (pathname === "/setup" || connection === "unconfigured") {
-    return <main className="min-h-dvh">{children}</main>;
+  if (pathname === "/setup" || pathname === "/offline" || connection === "unconfigured") {
+    return (
+      <main className="min-h-dvh">
+        {children}
+        <PwaBits />
+      </main>
+    );
   }
 
   return (
@@ -42,8 +49,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Rail pathname={pathname} />
       <div className="flex min-w-0 flex-1 flex-col">
         <ActiveSessionStrip />
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1 pb-14">{children}</main>
       </div>
+      <CommandPalette />
+      <PwaBits />
     </div>
   );
 }
@@ -94,7 +103,8 @@ function Rail({ pathname }: { pathname: string }) {
         );
       })}
 
-      <div className="mt-auto flex flex-col items-center gap-3 md:items-stretch">
+      <div className="mt-auto flex flex-col items-center gap-2 md:items-stretch">
+        <PaletteHint />
         <SyncPill />
       </div>
     </nav>

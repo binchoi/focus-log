@@ -18,18 +18,11 @@ import { listGoals, listSessions, totalsByGoal } from "@lib/store/repo";
 import type { Goal } from "@lib/sheets/schema";
 import { currentTimeZone, formatTotal, localDateOf } from "@lib/time";
 import { timerStore } from "@lib/timer/store";
-import { addDays, buildHeatmap, currentStreak } from "@lib/stats/heatmap";
+import { addDays, buildHeatmap, currentStreak, startOfWeek } from "@lib/stats/heatmap";
 import { Button, Meter, Panel, cn, goalColor } from "@/components/ui";
 import { Heatmap } from "@/components/heatmap";
 import { BackfillDialog } from "./backfill-dialog";
 import { useApp } from "./providers";
-
-/** Monday-based start of the week containing `date`. */
-export function startOfWeek(date: Date, timeZone: string): string {
-  const today = localDateOf(date, timeZone);
-  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
-  return addDays(today, -((weekday + 6) % 7));
-}
 
 export default function TodayPage() {
   const router = useRouter();
@@ -38,7 +31,7 @@ export default function TodayPage() {
 
   const timeZone = currentTimeZone();
   const today = localDateOf(new Date(), timeZone);
-  const weekStart = startOfWeek(new Date(), timeZone);
+  const weekStart = startOfWeek(today);
 
   // Live queries re-run on any IndexedDB change, so a background sync pulling
   // sessions from another device updates these totals with no refetch wiring.

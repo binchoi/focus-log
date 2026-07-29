@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, buildHeatmap, currentStreak, levelFor } from "./heatmap";
+import { addDays, buildHeatmap, currentStreak, levelFor, startOfWeek } from "./heatmap";
 
 describe("addDays", () => {
   it("moves forward and backward across month and year boundaries", () => {
@@ -136,6 +136,22 @@ describe("buildHeatmap", () => {
       ]),
     });
     expect(layout.maxSeconds).toBe(7200);
+  });
+});
+
+describe("startOfWeek", () => {
+  it("returns the Monday of the containing week", () => {
+    // 2026-07-29 is a Wednesday.
+    expect(startOfWeek("2026-07-29")).toBe("2026-07-27");
+    // A Monday is its own week start.
+    expect(startOfWeek("2026-07-27")).toBe("2026-07-27");
+    // A Sunday belongs to the week that began six days earlier, not the next one.
+    expect(startOfWeek("2026-08-02")).toBe("2026-07-27");
+  });
+
+  it("crosses a month and a year boundary", () => {
+    expect(startOfWeek("2026-08-01")).toBe("2026-07-27");
+    expect(startOfWeek("2026-01-01")).toBe("2025-12-29");
   });
 });
 

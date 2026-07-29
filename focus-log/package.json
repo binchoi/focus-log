@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -15,12 +15,14 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "sheet:template": "node --experimental-strip-types --no-warnings scripts/generate-sheet-template.ts"
+    "sheet:template": "node --experimental-strip-types --no-warnings scripts/generate-sheet-template.ts",
+    "icons": "node --experimental-strip-types --no-warnings scripts/generate-icons.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-progress": "^1.1.16",
     "@radix-ui/react-tooltip": "^1.2.16",
+    "@serwist/next": "^9.5.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -31,6 +33,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "recharts": "^2.15.1",
+    "serwist": "^9.5.12",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },
@@ -40,6 +43,7 @@
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/serviceworker": "^0.0.200",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.2.12",

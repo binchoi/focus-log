@@ -10,10 +10,9 @@ import { useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { listGoals, listSessions } from "@lib/store/repo";
 import { currentTimeZone, formatTotal, localDateOf } from "@lib/time";
-import { addDays, buildHeatmap, currentStreak } from "@lib/stats/heatmap";
+import { addDays, buildHeatmap, currentStreak, startOfWeek } from "@lib/stats/heatmap";
 import { Panel, Stat, goalColor } from "@/components/ui";
 import { Heatmap, TrendBars } from "@/components/heatmap";
-import { startOfWeek } from "../page";
 
 const DAYS_SHOWN = 181; // 26 whole weeks
 
@@ -24,7 +23,7 @@ export default function InsightsPage() {
 
   const timeZone = currentTimeZone();
   const today = localDateOf(new Date(), timeZone);
-  const weekStart = startOfWeek(new Date(), timeZone);
+  const weekStart = startOfWeek(today);
 
   const secondsByDate = useMemo(() => {
     const map = new Map<string, number>();

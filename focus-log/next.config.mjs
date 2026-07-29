@@ -1,3 +1,5 @@
+import withSerwistInit from "@serwist/next";
+
 /** @type {import('next').NextConfig} */
 
 const isDev = process.env.NODE_ENV === "development";
@@ -7,10 +9,10 @@ const isDev = process.env.NODE_ENV === "development";
  *
  * The service-account key lives in this browser (imported non-extractable, so it
  * cannot be read back out — see src/lib/auth/credentials.ts). Script on this
- * origin can still *use* it while the page is open, so the most valuable control
- * here is `connect-src`: even if something malicious executed, it could not ship
- * data to an attacker-controlled host, because the only network destinations
- * permitted are Google's Sheets and OAuth endpoints.
+ * origin can still *use* the key while the page is open, so the most valuable
+ * control here is `connect-src`: even if something malicious executed, it could
+ * not ship data to an attacker-controlled host, because the only network
+ * destinations permitted are Google's Sheets and OAuth endpoints.
  *
  * `script-src 'unsafe-inline'` is required because Next's App Router emits inline
  * hydration scripts, and per-request nonces need a server, which this app
@@ -26,6 +28,7 @@ const csp = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "manifest-src 'self'",
+  // The service worker is same-origin.
   "worker-src 'self'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -50,8 +53,34 @@ const securityHeaders = [
 
 const nextConfig = {
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        // The worker must not be cached, or a stale one can pin an old app
+        // version indefinitely.
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
   },
 };
 
-export default nextConfig;
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.ts",
+  swDest: "public/sw.js",
+  reloadOnOnline: false,
+});
+
+/**
+ * Serwist builds the worker with a webpack plugin, and Next 16 uses Turbopack by
+ * default — which fails fast when it finds a webpack config. So:
+ *
+ *   dev   -> plain config, Turbopack, no worker. A service worker in dev caches
+ *            aggressively and makes every change confusing to debug anyway.
+ *   build -> wrapped config, run with `next build --webpack` so the plugin
+ *            actually emits public/sw.js.
+ */
+export default isDev ? nextConfig : withSerwist(nextConfig);

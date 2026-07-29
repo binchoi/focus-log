@@ -35,6 +35,9 @@ jobs:
       - name: Unit tests
         run: npm run test:coverage
 
+      - name: Generate PWA icons
+        run: npm run icons
+
       - name: Build
         run: npm run build
 
@@ -50,6 +53,9 @@ jobs:
           cache-dependency-path: focus-log/package-lock.json
 
       - run: npm ci
+
+      - name: Generate PWA icons
+        run: npm run icons
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
