@@ -3,6 +3,7 @@ import { Fraunces, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "./providers";
 import { AppShell } from "./shell";
+import { DevServiceWorkerGuard } from "./dev-sw-guard";
 
 /**
  * next/font self-hosts these at build time, so they are served from our own
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body className="min-h-dvh antialiased">
+        <DevServiceWorkerGuard />
         <AppProvider>
           <AppShell>{children}</AppShell>
         </AppProvider>

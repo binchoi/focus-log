@@ -16,7 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "sheet:template": "node --experimental-strip-types --no-warnings scripts/generate-sheet-template.ts",
-    "icons": "node --experimental-strip-types --no-warnings scripts/generate-icons.ts"
+    "icons": "node --experimental-strip-types --no-warnings scripts/generate-icons.ts",
+    "predev": "rm -f public/sw.js public/sw.js.map"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
