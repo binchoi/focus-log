@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  defaultBackfillStart,
   durationSeconds,
   formatDuration,
   formatTotal,
@@ -7,6 +8,7 @@ import {
   isLocalDate,
   localDateOf,
   localDatesBetween,
+  localTimeOf,
   toIsoUtc,
 } from "./time";
 
@@ -125,6 +127,63 @@ describe("guards and serialisation", () => {
 
   it("throws on serialising an Invalid Date", () => {
     expect(() => toIsoUtc(new Date("nope"))).toThrow(RangeError);
+  });
+});
+
+describe("localTimeOf", () => {
+  it("returns 24-hour wall-clock time in the given zone", () => {
+    const instant = new Date("2026-07-29T13:05:00Z");
+    expect(localTimeOf(instant, "UTC")).toBe("13:05");
+    expect(localTimeOf(instant, "Asia/Singapore")).toBe("21:05");
+  });
+
+  it("renders midnight as 00:00, not 24:00", () => {
+    expect(localTimeOf(new Date("2026-07-29T16:00:00Z"), "Asia/Singapore")).toBe("00:00");
+  });
+
+  it("handles a non-hour offset", () => {
+    expect(localTimeOf(new Date("2026-07-29T00:00:00Z"), "Asia/Kathmandu")).toBe("05:45");
+  });
+});
+
+describe("defaultBackfillStart", () => {
+  it("never returns a start time in the future", () => {
+    // This is the actual bug: a fixed 09:00 default is in the future for anyone
+    // opening the form before 9am, and the form then rejected its own values.
+    // CI runs in UTC and failed whenever the job started before 09:00 UTC.
+    for (const hour of ["00", "03", "08", "09", "13", "23"]) {
+      const now = new Date(`2026-07-29T${hour}:17:00Z`);
+      const { date, time } = defaultBackfillStart(now, "UTC", 30);
+      const start = new Date(`${date}T${time}:00Z`);
+      expect(start.getTime()).toBeLessThanOrEqual(now.getTime());
+      // And the session it describes has already finished.
+      expect(start.getTime() + 30 * 60_000).toBeLessThanOrEqual(now.getTime() + 60_000);
+    }
+  });
+
+  it("describes a session that just finished, floored to five minutes", () => {
+    const now = new Date("2026-07-29T13:07:00Z");
+    expect(defaultBackfillStart(now, "UTC", 30)).toEqual({ date: "2026-07-29", time: "12:35" });
+  });
+
+  it("rolls back to the previous local day when subtracting crosses midnight", () => {
+    // 00:10 in Singapore, minus 30 minutes, is the previous day.
+    const now = new Date("2026-07-29T16:10:00Z");
+    const { date, time } = defaultBackfillStart(now, "Asia/Singapore", 30);
+    expect(date).toBe("2026-07-29");
+    expect(time).toBe("23:40");
+  });
+
+  it("holds for every zone offset, which is what CI exercised", () => {
+    const now = new Date("2026-07-29T02:00:00Z");
+    for (const zone of ["UTC", "Pacific/Midway", "Asia/Kathmandu", "Pacific/Kiritimati", "America/Los_Angeles"]) {
+      const { date, time } = defaultBackfillStart(now, zone, 45);
+      // Reconstructing in that zone must not exceed now.
+      const localMidnightGuess = new Date(`${date}T${time}:00Z`);
+      expect(Number.isNaN(localMidnightGuess.getTime())).toBe(false);
+      expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(time).toMatch(/^\d{2}:\d{2}$/);
+    }
   });
 });
 

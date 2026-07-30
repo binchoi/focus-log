@@ -281,6 +281,11 @@ test.describe("goal and session management", () => {
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
+
+    // Set the time explicitly instead of relying on the default. The default is
+    // clock-derived, so leaving it alone would make this assertion depend on what
+    // time the suite happens to run — which is what it used to do.
+    await dialog.locator("#bf-time").fill("07:30");
     await dialog.getByRole("button", { name: "45m" }).click();
     await dialog.getByRole("button", { name: /add session/i }).click();
 
@@ -289,5 +294,40 @@ test.describe("goal and session management", () => {
       .toBeTruthy();
     const manual = sheet.liveSessions().find((s) => s.source === "manual")!;
     expect(Number(manual.duration_seconds)).toBe(45 * 60);
+    // The local date is what the heatmap groups by, so it must be recorded.
+    expect(manual.local_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(manual.tz).toBeTruthy();
+  });
+
+  test("the backfill form's own defaults are always submittable", async ({ browser }) => {
+    // Regression for a real bug: the form defaulted to "today at 09:00", which is
+    // in the future for anyone opening it before 9am, so it rejected its own
+    // untouched values. CI found it because the runner is UTC and the job started
+    // before 09:00 UTC.
+    //
+    // Pacific/Midway is UTC-11, so the browser's local time is early in the day
+    // for most of the UTC day — making this fail reliably before the fix rather
+    // than only at certain hours.
+    const context = await browser.newContext({ timezoneId: "Pacific/Midway" });
+    const page = await context.newPage();
+    const sheet = new FakeSheet();
+    await sheet.install(context);
+    await boot(page);
+    await createGoal(page, "Defaults");
+
+    await page.goto("/");
+    await page.getByRole("button", { name: /add a past session/i }).first().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Submit without touching anything.
+    await dialog.getByRole("button", { name: /add session/i }).click();
+
+    await expect(dialog.getByRole("alert")).toBeHidden();
+    await expect
+      .poll(() => sheet.liveSessions().find((s) => s.source === "manual"), { timeout: 20_000 })
+      .toBeTruthy();
+
+    await context.close();
   });
 });

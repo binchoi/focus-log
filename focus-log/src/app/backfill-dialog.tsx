@@ -8,11 +8,12 @@
 import { useState } from "react";
 import { logSession } from "@lib/store/repo";
 import type { Goal } from "@lib/sheets/schema";
-import { currentTimeZone, formatTotal, localDateOf } from "@lib/time";
+import { currentTimeZone, defaultBackfillStart, formatTotal, localDateOf } from "@lib/time";
 import { Alert, Button, Dialog, DialogContent, Field, Input } from "@/components/ui";
 import { useApp } from "./providers";
 
 const PRESETS = [15, 25, 45, 60, 90];
+const DEFAULT_MINUTES = 30;
 
 export function BackfillDialog({
   goal,
@@ -27,9 +28,14 @@ export function BackfillDialog({
   const timeZone = currentTimeZone();
   const today = localDateOf(new Date(), timeZone);
 
-  const [date, setDate] = useState(today);
-  const [time, setTime] = useState("09:00");
-  const [minutes, setMinutes] = useState("30");
+  // Derived from the clock, not a fixed hour. A constant default like "09:00" is
+  // in the future for anyone opening this before 9am, so the form rejected its own
+  // untouched values. Defaulting to a session that just finished is always valid
+  // and matches the common case.
+  const [initial] = useState(() => defaultBackfillStart(new Date(), timeZone, DEFAULT_MINUTES));
+  const [date, setDate] = useState(initial.date);
+  const [time, setTime] = useState(initial.time);
+  const [minutes, setMinutes] = useState(String(DEFAULT_MINUTES));
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
