@@ -28,6 +28,7 @@ import {
   cn,
   goalColor,
 } from "@/components/ui";
+import { InstallSection } from "../install-section";
 import { SyncDetail } from "../sync-pill";
 import { useApp } from "../providers";
 
@@ -271,8 +272,10 @@ export default function SettingsPage() {
         </Panel>
       </section>
 
+      <InstallSection />
+
       {/* ---------------- connection ---------------- */}
-      <section className="rise mt-12" style={{ "--i": 3 } as React.CSSProperties}>
+      <section className="rise mt-12" style={{ "--i": 5 } as React.CSSProperties}>
         <h2 className="font-display text-2xl text-cream-50">Connection</h2>
         <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-cream-400">
           Your private key is stored so that it can sign requests but can never be read back out of

@@ -114,6 +114,45 @@ export function formatTotal(totalSeconds: number): string {
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 }
 
+/** Local wall-clock time as `HH:MM` in `timeZone`, 24-hour. */
+export function localTimeOf(instant: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23", // avoids "24:00" for midnight
+  }).formatToParts(instant);
+
+  let hour = "";
+  let minute = "";
+  for (const part of parts) {
+    if (part.type === "hour") hour = part.value;
+    else if (part.type === "minute") minute = part.value;
+  }
+  if (!hour || !minute) throw new RangeError(`Could not derive a local time for "${timeZone}"`);
+  return `${hour}:${minute}`;
+}
+
+/**
+ * Default start for the "add a past session" form: a session of `minutes` that
+ * finished just now, floored to a 5-minute boundary.
+ *
+ * Deliberately derived from the clock rather than a fixed time of day. A constant
+ * default like 09:00 is *in the future* for anyone opening the form before 9am,
+ * so the form rejected its own untouched values — which is exactly how this was
+ * found (CI runs in UTC and failed whenever it started before 09:00).
+ */
+export function defaultBackfillStart(
+  now: Date,
+  timeZone: string,
+  minutes: number,
+): { date: LocalDate; time: string } {
+  const fiveMinutes = 5 * 60 * 1000;
+  const startMs = Math.floor((now.getTime() - minutes * 60_000) / fiveMinutes) * fiveMinutes;
+  const start = new Date(startMs);
+  return { date: localDateOf(start, timeZone), time: localTimeOf(start, timeZone) };
+}
+
 /**
  * Inclusive list of local dates spanned by a range, in `timeZone`.
  * Used by the heatmap so a session that crosses midnight is attributed to the
