@@ -12,7 +12,11 @@ import { AlertTriangle, Check, CloudOff, RefreshCw, UploadCloud } from "lucide-r
 import { cn } from "@/components/ui";
 import { useApp } from "./providers";
 
-export function SyncPill() {
+/**
+ * @param compact — icon-only square, for the phone top bar where there is no
+ *   room for the status text. The text still ships as `sr-only` + `title`.
+ */
+export function SyncPill({ compact = false }: { compact?: boolean }) {
   const { status, syncNow } = useApp();
 
   const view = status.error
@@ -45,13 +49,16 @@ export function SyncPill() {
       disabled={status.running}
       title={detail}
       className={cn(
-        "group flex w-full items-center justify-center gap-2 rounded-lg border bg-ink-900/60 px-2 py-2 text-xs transition-colors duration-200 md:justify-start md:px-2.5",
+        "group flex items-center gap-2 rounded-lg border bg-ink-900/60 text-xs transition-colors duration-200",
         "hover:bg-ink-800 disabled:pointer-events-none",
+        compact
+          ? "h-9 w-9 justify-center"
+          : "w-full justify-center px-2 py-2 md:justify-start md:px-2.5",
         view.tone,
       )}
     >
       <view.Icon size={14} className={cn("shrink-0", status.running && "animate-spin")} />
-      <span className="hidden truncate md:block">{view.text}</span>
+      <span className={cn("truncate", compact ? "sr-only" : "hidden md:block")}>{view.text}</span>
     </button>
   );
 }

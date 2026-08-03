@@ -75,23 +75,27 @@ test.describe("phone layout", () => {
     await expectNoOverflow(page, "/stats");
   });
 
-  test("the nav rail collapses to icons and stays reachable", async ({ page, context }) => {
+  test("the nav is a top bar, not a side rail, and stays reachable", async ({ page, context }) => {
     const sheet = new FakeSheet();
     await sheet.install(context);
     await boot(page);
 
+    // On a phone the left rail is gone (display:none, so out of the a11y tree);
+    // getByRole resolves to the single visible nav — the top bar.
     const nav = page.getByRole("navigation", { name: "Main" });
     await expect(nav).toBeVisible();
 
-    // Labels are hidden at this width, but the links must still be operable.
+    // It's a horizontal bar against the top edge, not a rail down the side:
+    // it spans the width and does not eat into the content column beside it.
+    const box = (await nav.boundingBox())!;
+    expect(box.y).toBeLessThanOrEqual(80);
+    expect(box.width).toBeGreaterThan(PHONE.width / 2);
+
+    // The links must still be operable.
     const settings = nav.getByRole("link", { name: /settings/i });
     await expect(settings).toBeVisible();
     await settings.click();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-
-    // The rail must not eat the screen.
-    const width = await nav.evaluate((el) => el.getBoundingClientRect().width);
-    expect(width).toBeLessThanOrEqual(80);
   });
 
   test("tap targets on the primary action are large enough", async ({ page, context }) => {
