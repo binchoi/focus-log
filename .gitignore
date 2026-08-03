@@ -7,3 +7,20 @@ service-account*.json
 !*.example.json
 
 .DS_Store
+
+# EPCC planning scratch for the Wear OS module (working notes, not shipped).
+EPCC_PLAN_WEAR.md
+
+# Wear OS / Android build artifacts (focus-log-wear/).
+focus-log-wear/.gradle/
+focus-log-wear/**/build/
+focus-log-wear/local.properties
+focus-log-wear/.idea/
+focus-log-wear/.kotlin/
+*.apk
+*.aab
+.cxx/
+
+# The real embedded credential + spreadsheet id. Never commit it; the
+# *.example.json template is committed instead.
+focus-log-wear/wear/src/main/assets/focus-config.json

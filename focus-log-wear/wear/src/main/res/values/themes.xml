@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme for the launcher window before Compose takes over. Compose
+         renders the actual UI with Wear MaterialTheme; this just sets the window
+         background so there is no white flash on launch. -->
+    <style name="AppTheme" parent="@android:style/Theme.DeviceDefault">
+        <item name="android:windowBackground">@color/ink</item>
+        <item name="android:colorBackground">@color/ink</item>
+    </style>
+</resources>
