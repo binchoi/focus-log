@@ -59,9 +59,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Rail pathname={pathname} />
       <TopBar pathname={pathname} />
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Desktop keeps the strip at the top of the content column; on a phone
-            it lives inside the top bar so it can survive the bar hiding. */}
-        <div className="sticky top-0 z-20 hidden md:block">
+        {/* One strip for both chromes, pinned to the top of the content column.
+            On a phone that column is full width and the top bar above it is not
+            sticky, so the strip is what stays put once the bar scrolls away. */}
+        <div className="sticky top-0 z-20">
           <ActiveSessionStrip />
         </div>
         <main className="min-w-0 flex-1 pb-14">{children}</main>
@@ -96,66 +97,60 @@ function Brand({ withWordmark = false }: { withWordmark?: boolean }) {
  * area tall. (An auto-hiding sticky bar was tried and abandoned: collapsing a
  * sticky element changes document height, which near the scroll boundary nudges
  * scrollY, which re-fires the hide/show — an oscillation loop.) The session
- * strip that follows it *is* sticky, so a running timer is never scrolled off.
+ * strip, pinned at the top of the content column below, is what stays once this
+ * bar scrolls off, so a running timer is never lost.
  */
 function TopBar({ pathname }: { pathname: string }) {
   return (
-    <>
-      <div className="border-b border-ink-800/70 bg-ink-900/80 backdrop-blur-xl md:hidden">
-        <div className="flex h-12 items-center justify-between px-4">
-          <Link href="/" className="flex items-center" aria-label="Focus Log home">
-            <Brand />
-          </Link>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() =>
-                window.dispatchEvent(
-                  new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }),
-                )
-              }
-              aria-label="Search"
-              title="Search"
-              className="grid h-9 w-9 place-items-center rounded-lg border border-ink-700 bg-ink-900/60 text-cream-400 transition-colors hover:border-ink-600 hover:text-cream-200"
-            >
-              <Search size={16} strokeWidth={1.75} />
-            </button>
-            <SyncPill compact />
-          </div>
+    <div className="border-b border-ink-800/70 bg-ink-900/80 backdrop-blur-xl md:hidden">
+      <div className="flex h-12 items-center justify-between px-4">
+        <Link href="/" className="flex items-center" aria-label="Focus Log home">
+          <Brand />
+        </Link>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }),
+              )
+            }
+            aria-label="Search"
+            title="Search"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-ink-700 bg-ink-900/60 text-cream-400 transition-colors hover:border-ink-600 hover:text-cream-200"
+          >
+            <Search size={16} strokeWidth={1.75} />
+          </button>
+          <SyncPill compact />
         </div>
-
-        <nav aria-label="Main" className="flex justify-center px-4 pb-2.5">
-          <div className="flex items-center gap-1 rounded-full border border-ink-700 bg-ink-950/50 p-1">
-            {NAV.map(({ href, label, icon: Icon }) => {
-              const active = isActive(href, pathname);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[0.8125rem] font-medium transition-colors duration-200",
-                    active ? "bg-ink-800 text-cream-50" : "text-cream-400 hover:text-cream-200",
-                  )}
-                >
-                  <Icon
-                    size={15}
-                    strokeWidth={1.75}
-                    className={cn("shrink-0", active && "text-ember-400")}
-                  />
-                  {label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
       </div>
 
-      {/* Pinned so a live session survives the bar above scrolling away. */}
-      <div className="sticky top-0 z-30 md:hidden">
-        <ActiveSessionStrip />
-      </div>
-    </>
+      <nav aria-label="Main" className="flex justify-center px-4 pb-2.5">
+        <div className="flex items-center gap-1 rounded-full border border-ink-700 bg-ink-950/50 p-1">
+          {NAV.map(({ href, label, icon: Icon }) => {
+            const active = isActive(href, pathname);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[0.8125rem] font-medium transition-colors duration-200",
+                  active ? "bg-ink-800 text-cream-50" : "text-cream-400 hover:text-cream-200",
+                )}
+              >
+                <Icon
+                  size={15}
+                  strokeWidth={1.75}
+                  className={cn("shrink-0", active && "text-ember-400")}
+                />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </div>
   );
 }
 
