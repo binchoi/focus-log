@@ -331,3 +331,37 @@ test.describe("goal and session management", () => {
     await context.close();
   });
 });
+
+test.describe("today dashboard cards are clickable", () => {
+  test("the summary and goal cards navigate, without hijacking their buttons", async ({
+    page,
+    context,
+  }) => {
+    const sheet = new FakeSheet();
+    await sheet.install(context);
+    await boot(page);
+    await createGoal(page, "Deep work");
+
+    // The whole "Focused today" summary reads like something you can open — so
+    // it opens Insights.
+    await page.goto("/");
+    await page.getByRole("link", { name: /today's focus/i }).click();
+    await expect(page).toHaveURL(/\/stats$/);
+
+    // Clicking the goal card body — not one of its buttons — opens the goal.
+    // This is the stretched link: a click on empty card space must navigate.
+    await page.goto("/");
+    const card = page.locator('li:has(a[href^="/goal/"]:not([href$="/stats"]))').first();
+    await card.click({ position: { x: 24, y: 52 } });
+    await expect(page).toHaveURL(/\/goal\//);
+
+    // The card's own actions must stay independent of that stretched link:
+    // "add a past session" opens its dialog rather than navigating.
+    await page.goto("/");
+    await card.getByRole("button", { name: /add a past session/i }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+
+    await context.close();
+  });
+});

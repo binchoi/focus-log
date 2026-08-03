@@ -36,7 +36,11 @@ export default function TodayPage() {
   // Live queries re-run on any IndexedDB change, so a background sync pulling
   // sessions from another device updates these totals with no refetch wiring.
   const goals = useLiveQuery(() => listGoals(), [], undefined);
-  const todayTotals = useLiveQuery(() => totalsByGoal({ from: today, to: today }), [today], undefined);
+  const todayTotals = useLiveQuery(
+    () => totalsByGoal({ from: today, to: today }),
+    [today],
+    undefined,
+  );
   const weekTotals = useLiveQuery(() => totalsByGoal({ from: weekStart }), [weekStart], undefined);
   const allSessions = useLiveQuery(() => listSessions({}), [], undefined);
 
@@ -95,77 +99,76 @@ export default function TodayPage() {
                 month: "long",
               })}
             </p>
-            <h1 className="mt-2 font-display text-[2.75rem] leading-[0.95] text-cream-50">
-              Today
-            </h1>
+            <h1 className="mt-2 font-display text-[2.75rem] leading-[0.95] text-cream-50">Today</h1>
           </div>
 
-          <Panel className="relative overflow-hidden p-6">
-            {/* Ember bloom, brighter once there is something to show for the day. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full transition-opacity duration-1000"
-              style={{
-                background:
-                  "radial-gradient(circle, rgba(255,122,24,0.22), transparent 65%)",
-                opacity: todayAll > 0 ? 1 : 0.25,
-              }}
-            />
-            <p className="label relative">Focused today</p>
-            <p
-              className={cn(
-                "num relative mt-2 text-[3.25rem] leading-none tracking-tighter",
-                todayAll > 0 ? "text-cream-50" : "text-cream-600",
-              )}
-            >
-              {formatTotal(todayAll)}
-            </p>
-
-            <div className="seam my-5" />
-
-            <dl className="grid grid-cols-2 gap-4">
-              <div>
-                <dt className="label">This week</dt>
-                <dd className="num mt-1 text-lg text-cream-200">{formatTotal(weekAll)}</dd>
-              </div>
-              <div>
-                <dt className="label">Streak</dt>
-                <dd className="num mt-1 text-lg text-cream-200">
-                  {streak}
-                  <span className="ml-1 font-sans text-xs text-cream-600">
-                    day{streak === 1 ? "" : "s"}
-                  </span>
-                </dd>
-              </div>
-            </dl>
-
-            {weekTargetSeconds > 0 && (
-              <div className="mt-5 space-y-2">
-                <div className="flex items-baseline justify-between">
-                  <span className="label">Weekly target</span>
-                  <span className="num text-xs text-cream-400">
-                    {Math.round((weekAll / weekTargetSeconds) * 100)}%
-                  </span>
-                </div>
-                <Meter
-                  value={weekAll}
-                  max={weekTargetSeconds}
-                  label={`Weekly target: ${Math.round((weekAll / weekTargetSeconds) * 100)}% complete`}
+          {/* The whole panel is a link into Insights — it reads like a summary
+              you can open, so it should behave like one. */}
+          <Link href="/stats" aria-label="Today's focus — open Insights" className="group block">
+            <Panel interactive className="relative overflow-hidden p-6">
+              {/* Ember bloom, brighter once there is something to show for the day. */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full transition-opacity duration-1000"
+                style={{
+                  background: "radial-gradient(circle, rgba(255,122,24,0.22), transparent 65%)",
+                  opacity: todayAll > 0 ? 1 : 0.25,
+                }}
+              />
+              <div className="relative flex items-baseline justify-between">
+                <p className="label">Focused today</p>
+                <ArrowRight
+                  size={15}
+                  aria-hidden="true"
+                  className="text-cream-600 opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-ember-400 group-hover:opacity-100"
                 />
               </div>
-            )}
-          </Panel>
+              <p
+                className={cn(
+                  "num relative mt-2 text-[3.25rem] leading-none tracking-tighter",
+                  todayAll > 0 ? "text-cream-50" : "text-cream-600",
+                )}
+              >
+                {formatTotal(todayAll)}
+              </p>
 
-          <Link
-            href="/stats"
-            className="group flex items-center gap-2 text-sm text-cream-400 transition-colors hover:text-ember-400"
-          >
-            <BarChart3 size={15} strokeWidth={1.75} />
-            See all insights
-            <ArrowRight
-              size={14}
-              className="transition-transform duration-200 group-hover:translate-x-0.5"
-            />
+              {/* Today's time, split across goals — a small stacked gauge. */}
+              <TodayBreakdown goals={goals} totals={todayTotals} total={todayAll} />
+
+              <div className="seam my-5" />
+
+              <dl className="grid grid-cols-2 gap-4">
+                <div>
+                  <dt className="label">This week</dt>
+                  <dd className="num mt-1 text-lg text-cream-200">{formatTotal(weekAll)}</dd>
+                </div>
+                <div>
+                  <dt className="label">Streak</dt>
+                  <dd className="num mt-1 text-lg text-cream-200">
+                    {streak}
+                    <span className="ml-1 font-sans text-xs text-cream-600">
+                      day{streak === 1 ? "" : "s"}
+                    </span>
+                  </dd>
+                </div>
+              </dl>
+
+              {weekTargetSeconds > 0 && (
+                <div className="mt-5 space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="label">Weekly target</span>
+                    <span className="num text-xs text-cream-400">
+                      {Math.round((weekAll / weekTargetSeconds) * 100)}%
+                    </span>
+                  </div>
+                  <Meter
+                    value={weekAll}
+                    max={weekTargetSeconds}
+                    label={`Weekly target: ${Math.round((weekAll / weekTargetSeconds) * 100)}% complete`}
+                  />
+                </div>
+              )}
+            </Panel>
           </Link>
         </div>
 
@@ -186,8 +189,8 @@ export default function TodayPage() {
             <Panel className="px-6 py-14 text-center">
               <h3 className="font-display text-xl text-cream-50">Nothing to track yet</h3>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-cream-400">
-                Add your first goal — something you want to give real, measured attention to
-                this quarter.
+                Add your first goal — something you want to give real, measured attention to this
+                quarter.
               </p>
               <Link href="/settings" className="mt-5 inline-block">
                 <Button variant="primary">
@@ -219,10 +222,7 @@ export default function TodayPage() {
       </div>
 
       {loggedAnything && (
-        <section
-          className="rise mt-10"
-          style={{ "--i": 4 } as React.CSSProperties}
-        >
+        <section className="rise mt-10" style={{ "--i": 4 } as React.CSSProperties}>
           <div className="mb-4 flex items-baseline justify-between gap-4">
             <h2 className="font-display text-2xl text-cream-50">Recent</h2>
             <Link
@@ -232,9 +232,15 @@ export default function TodayPage() {
               Full history
             </Link>
           </div>
-          <Panel className="w-fit max-w-full p-5">
-            <Heatmap layout={recent} />
-          </Panel>
+          <Link
+            href="/stats"
+            aria-label="Recent activity — open Insights"
+            className="block w-fit max-w-full"
+          >
+            <Panel interactive className="w-fit max-w-full p-5">
+              <Heatmap layout={recent} />
+            </Panel>
+          </Link>
         </section>
       )}
 
@@ -245,6 +251,60 @@ export default function TodayPage() {
           onOpenChange={(open) => !open && setBackfillFor(undefined)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Today's focused time, split across goals: a thin stacked gauge over a compact
+ * legend. Reuses the goal palette so a colour means the same goal here as it
+ * does on its card and in the heatmap. Renders nothing on an empty day — the
+ * grey "0m" above already says it.
+ */
+function TodayBreakdown({
+  goals,
+  totals,
+  total,
+}: {
+  goals: Goal[];
+  totals: Map<string, number> | undefined;
+  total: number;
+}) {
+  const rows = goals
+    .map((goal) => ({ goal, seconds: totals?.get(goal.goal_id) ?? 0 }))
+    .filter((row) => row.seconds > 0)
+    .sort((a, b) => b.seconds - a.seconds);
+
+  if (total <= 0 || rows.length === 0) return null;
+
+  return (
+    <div className="relative mt-4">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-ink-800">
+        {rows.map(({ goal, seconds }) => (
+          <div
+            key={goal.goal_id}
+            className="h-full first:rounded-l-full last:rounded-r-full"
+            style={{
+              width: `${(seconds / total) * 100}%`,
+              background: goalColor(goal.goal_id, goal.color),
+            }}
+          />
+        ))}
+      </div>
+
+      <ul className="mt-3 space-y-1.5">
+        {rows.map(({ goal, seconds }) => (
+          <li key={goal.goal_id} className="flex items-center gap-2 text-xs">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ background: goalColor(goal.goal_id, goal.color) }}
+            />
+            <span className="min-w-0 flex-1 truncate text-cream-400">{goal.title}</span>
+            <span className="num text-cream-200">{formatTotal(seconds)}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -287,7 +347,13 @@ function GoalCard({
         </span>
       )}
 
-      <Link href={`/goal/${goal.goal_id}`} className="min-w-0">
+      {/* Stretched link: the ::after covers the whole Panel, so clicking
+          anywhere on the card (except the raised actions below) opens the goal.
+          The card is one link, labelled by the goal title. */}
+      <Link
+        href={`/goal/${goal.goal_id}`}
+        className="min-w-0 after:absolute after:inset-0 after:content-['']"
+      >
         <h3 className="truncate pr-14 font-display text-xl leading-tight text-cream-50 transition-colors group-hover:text-ember-300">
           {goal.title}
         </h3>
@@ -318,7 +384,8 @@ function GoalCard({
         />
       )}
 
-      <div className="mt-5 flex items-center gap-2 pt-1">
+      {/* Raised above the stretched link so these stay independently clickable. */}
+      <div className="relative z-10 mt-5 flex items-center gap-2 pt-1">
         <Link href={`/goal/${goal.goal_id}`} className="flex-1">
           <Button variant={isActive ? "primary" : "default"} size="sm" className="w-full">
             <Play size={13} strokeWidth={2.5} />
