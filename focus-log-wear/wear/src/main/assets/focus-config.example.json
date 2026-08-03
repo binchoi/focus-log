@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy this file to focus-config.json (same folder) and fill it in. focus-config.json is gitignored so your key never gets committed. The service account must be shared on the spreadsheet as an Editor. See wear/README.md.",
+  "spreadsheetId": "PASTE_THE_LONG_ID_BETWEEN_/d/_AND_/edit",
+  "serviceAccount": {
+    "client_email": "focus-log@your-project.iam.gserviceaccount.com",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIExampleFakeKeyDoNotUse...\n-----END PRIVATE KEY-----\n"
+  }
+}

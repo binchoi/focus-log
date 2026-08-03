@@ -1,0 +1,67 @@
+# Central version catalog. The :core module uses only `kotlin`; the rest are for
+# the :wear Android module (Compose for Wear OS, Room, Retrofit, WorkManager).
+[versions]
+kotlin = "2.1.0"
+agp = "8.7.3"
+coreKtx = "1.13.1"
+lifecycle = "2.8.7"
+activityCompose = "1.9.3"
+composeBom = "2024.12.01"
+wearCompose = "1.4.0"
+wearTooling = "1.0.0"
+wearOngoing = "1.0.0"
+tiles = "1.4.1"
+protolayout = "1.2.1"
+complications = "1.2.1"
+room = "2.7.1"
+ksp = "2.1.0-1.0.29"
+retrofit = "2.11.0"
+okhttp = "4.12.0"
+workManager = "2.10.0"
+coroutines = "1.9.0"
+guava = "33.3.1-android"
+junit = "5.10.2"
+
+[libraries]
+# --- :wear (Android) ---
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+wear-compose-material = { module = "androidx.wear.compose:compose-material", version.ref = "wearCompose" }
+wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wearCompose" }
+wear-tooling-preview = { module = "androidx.wear:wear-tooling-preview", version.ref = "wearTooling" }
+wear-ongoing = { module = "androidx.wear:wear-ongoing", version.ref = "wearOngoing" }
+wear-tiles = { module = "androidx.wear.tiles:tiles", version.ref = "tiles" }
+wear-tiles-material = { module = "androidx.wear.tiles:tiles-material", version.ref = "tiles" }
+wear-protolayout = { module = "androidx.wear.protolayout:protolayout", version.ref = "protolayout" }
+wear-protolayout-material = { module = "androidx.wear.protolayout:protolayout-material", version.ref = "protolayout" }
+wear-complications-datasource = { module = "androidx.wear.watchface:watchface-complications-data-source-ktx", version.ref = "complications" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit-scalars = { module = "com.squareup.retrofit2:converter-scalars", version.ref = "retrofit" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-logging = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "okhttp" }
+work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workManager" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+
+# --- test ---
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
