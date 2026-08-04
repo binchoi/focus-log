@@ -4,6 +4,21 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+
+/**
+ * v1 → v2 adds the cross-device timer columns to `active_session`. A real
+ * migration (not destructive) so an in-progress timer and any un-synced local
+ * goals/sessions survive the upgrade.
+ */
+private val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE active_session ADD COLUMN logId TEXT")
+        db.execSQL("ALTER TABLE active_session ADD COLUMN deviceId TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE active_session ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+    }
+}
 
 @Database(
     entities = [
@@ -13,7 +28,7 @@ import androidx.room.RoomDatabase
         ActiveSessionEntity::class,
         SyncMetaEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class FocusLogDatabase : RoomDatabase() {
@@ -33,7 +48,7 @@ abstract class FocusLogDatabase : RoomDatabase() {
                     context.applicationContext,
                     FocusLogDatabase::class.java,
                     "focus-log",
-                ).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
             }
     }
 }

@@ -1,5 +1,6 @@
 package com.focuslog.wear.data.room
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -42,7 +43,7 @@ data class SessionEntity(
 @Entity(tableName = "outbox")
 data class OutboxEntity(
     @PrimaryKey(autoGenerate = true) val opId: Long = 0,
-    val entity: String, // "GOAL" | "SESSION"
+    val entity: String, // "GOAL" | "SESSION" | "ACTIVE"
     val entityId: String,
     val payloadJson: String,
     val createdAt: String,
@@ -60,6 +61,12 @@ data class ActiveSessionEntity(
     val segmentsJson: String,
     val startedAt: Long,
     val note: String,
+    /** The shared session id (v2+): minted at start, reused at finalise. Null for legacy/local-only rows. */
+    val logId: String? = null,
+    /** The device the timer runs on — this device, or a foreign one when adopted from the sheet. */
+    @ColumnInfo(defaultValue = "") val deviceId: String = "",
+    /** Epoch ms; the last-write-wins clock stamped when this row was written. */
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
 )
 
 @Entity(tableName = "sync_meta")

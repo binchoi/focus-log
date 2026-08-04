@@ -308,6 +308,16 @@ private fun TimerScreen(graph: AppGraph, goalId: String, onExit: () -> Unit) {
     // was already stuck, since entering the screen re-establishes a session.
     LaunchedEffect(goalId) { graph.timer.start(goalId) }
 
+    // While the timer screen is open, poll the sheet so a shared timer stays live
+    // and a stop from another device shows up within a few seconds. The effect is
+    // cancelled when you leave the screen, so it never runs in the background.
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(15_000)
+            if (graph.isConfigured) SyncScheduler.syncNow(graph.appContext)
+        }
+    }
+
     val belongsHere = state?.goalId == goalId
     val phase = if (belongsHere) TimerEngine.phaseOf(state) else TimerPhase.IDLE
     val running = phase == TimerPhase.RUNNING
@@ -329,6 +339,9 @@ private fun TimerScreen(graph: AppGraph, goalId: String, onExit: () -> Unit) {
                         endMillis = p.endMillis,
                         note = p.note,
                         durationSecondsOverride = seconds,
+                        // Reuse the id minted at start (here or on another device), so
+                        // two devices ending this timer collapse to one session.
+                        logId = graph.timer.state.value?.logId,
                     )
                     graph.timer.discard()
                     if (graph.isConfigured) SyncScheduler.syncNow(graph.appContext)

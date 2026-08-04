@@ -58,6 +58,22 @@ class OkHttpSheetsClient(
         )
     }
 
+    override suspend fun readActive(): List<Row>? {
+        val url = spreadsheetUrl()
+            .addPathSegment("values:batchGet")
+            .addQueryParameter("ranges", Ranges.active)
+            .addQueryParameter("valueRenderOption", "UNFORMATTED_VALUE")
+            .addQueryParameter("dateTimeRenderOption", "FORMATTED_STRING")
+            .build()
+        return try {
+            val payload = request(Request.Builder().url(url).get())
+            rowsAt(payload.optJSONArray("valueRanges") ?: JSONArray(), 0)
+        } catch (e: SheetsError) {
+            // A v1 sheet has no `active` tab → 400/404. Feature off, not an error.
+            if (e.kind == SheetsErrorKind.BAD_REQUEST || e.kind == SheetsErrorKind.NOT_FOUND) null else throw e
+        }
+    }
+
     override suspend fun append(range: String, rows: List<List<Cell>>) {
         if (rows.isEmpty()) return
         // The range ("sessions!A:L") and the ":append" custom-method suffix are one

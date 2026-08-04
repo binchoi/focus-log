@@ -1,8 +1,11 @@
 package com.focuslog.wear.data.room
 
+import com.focuslog.core.model.ActiveTimer
 import com.focuslog.core.model.Goal
 import com.focuslog.core.model.Session
 import com.focuslog.core.model.Versioned
+import com.focuslog.core.sheets.decodeSegments
+import com.focuslog.core.sheets.encodeSegments
 import com.focuslog.core.store.OutboxEntity as CoreOutboxEntity
 import com.focuslog.core.store.OutboxOp
 import org.json.JSONObject
@@ -80,6 +83,16 @@ private fun encodePayload(payload: Versioned): String = when (payload) {
         put("deviceId", payload.deviceId)
     }.toString()
 
+    is ActiveTimer -> JSONObject().apply {
+        put("logId", payload.logId)
+        put("goalId", payload.goalId)
+        put("segments", encodeSegments(payload.segments))
+        put("note", payload.note)
+        put("updatedAt", payload.updatedAt)
+        put("deleted", payload.deleted)
+        put("deviceId", payload.deviceId)
+    }.toString()
+
     else -> error("Unknown payload type: ${payload::class}")
 }
 
@@ -109,6 +122,16 @@ private fun decodePayload(entity: String, json: String): Versioned {
             tz = o.getString("tz"),
             note = o.getString("note"),
             source = o.getString("source"),
+            updatedAt = o.getString("updatedAt"),
+            deleted = o.getBoolean("deleted"),
+            deviceId = o.getString("deviceId"),
+        )
+
+        CoreOutboxEntity.ACTIVE -> ActiveTimer(
+            logId = o.getString("logId"),
+            goalId = o.getString("goalId"),
+            segments = decodeSegments(o.getString("segments")),
+            note = o.getString("note"),
             updatedAt = o.getString("updatedAt"),
             deleted = o.getBoolean("deleted"),
             deviceId = o.getString("deviceId"),
