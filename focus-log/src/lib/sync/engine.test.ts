@@ -10,9 +10,17 @@ import {
 } from "../store/repo";
 import { SheetsClient, SheetsError } from "../sheets/client";
 import { RANGES } from "../sheets/columns";
-import { headerRow, GOAL_COLUMNS, SESSION_COLUMNS } from "../sheets/columns";
-import { parseSessionRows, sessionToRow, type Session } from "../sheets/schema";
-import { SyncEngine, isSchemaCompatible } from "./engine";
+import { headerRow, ACTIVE_COLUMNS, GOAL_COLUMNS, SESSION_COLUMNS } from "../sheets/columns";
+import {
+  activeToRow,
+  parseActiveRows,
+  parseSessionRows,
+  sessionToRow,
+  type ActiveTimer,
+  type Session,
+} from "../sheets/schema";
+import { SyncEngine, isSchemaCompatible, type ActiveBridge } from "./engine";
+import type { Reconciliation } from "../timer/lifecycle";
 import { reduceLatest } from "./merge";
 
 let dbCounter = 0;
@@ -35,10 +43,13 @@ const tick = (ms: number) => (clock += ms);
 class FakeSheet {
   goals: unknown[][] = [headerRow(GOAL_COLUMNS)];
   sessions: unknown[][] = [headerRow(SESSION_COLUMNS)];
+  active: unknown[][] = [headerRow(ACTIVE_COLUMNS)];
   meta: unknown[][] = [
     ["key", "value"],
     ["schema_version", "1"],
   ];
+  /** A v1 sheet has no `active` tab: reads/writes of it 400, like Google. */
+  hasActiveTab = true;
   offline = false;
   appendCalls = 0;
   /** Simulates "the append succeeded but the response never arrived". */
@@ -46,34 +57,48 @@ class FakeSheet {
 
   client(maxAttempts = 2): SheetsClient {
     const sheet = this;
+    const missingRange = () =>
+      new Response(
+        JSON.stringify({ error: { code: 400, message: "Unable to parse range: active" } }),
+        {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        },
+      );
     const fetchImpl: typeof fetch = async (input, init) => {
       const url = new URL(String(input));
       if (sheet.offline) throw new TypeError("Failed to fetch");
 
       if (url.pathname.endsWith(":batchGet")) {
         const ranges = url.searchParams.getAll("ranges");
+        if (!sheet.hasActiveTab && ranges.includes(RANGES.active)) return missingRange();
+        const valueFor = (range: string) =>
+          range === RANGES.goals
+            ? sheet.goals
+            : range === RANGES.sessions
+              ? sheet.sessions
+              : range === RANGES.active
+                ? sheet.active
+                : sheet.meta;
         return new Response(
-          JSON.stringify({
-            valueRanges: ranges.map((range) => ({
-              values:
-                range === RANGES.goals
-                  ? sheet.goals
-                  : range === RANGES.sessions
-                    ? sheet.sessions
-                    : sheet.meta,
-            })),
-          }),
+          JSON.stringify({ valueRanges: ranges.map((range) => ({ values: valueFor(range) })) }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
 
       if (url.pathname.endsWith(":append")) {
-        sheet.appendCalls += 1;
         const body = JSON.parse(String(init?.body ?? "{}")) as {
           range: string;
           values: unknown[][];
         };
-        const target = body.range === RANGES.goals ? sheet.goals : sheet.sessions;
+        if (body.range === RANGES.active && !sheet.hasActiveTab) return missingRange();
+        sheet.appendCalls += 1;
+        const target =
+          body.range === RANGES.goals
+            ? sheet.goals
+            : body.range === RANGES.active
+              ? sheet.active
+              : sheet.sessions;
         target.push(...body.values);
         if (sheet.swallowNextResponse) {
           sheet.swallowNextResponse = false;
@@ -96,6 +121,18 @@ class FakeSheet {
 
   sessionRecords(): Session[] {
     return parseSessionRows(this.sessions as never).records;
+  }
+
+  activeRecords(): ActiveTimer[] {
+    return parseActiveRows(this.active as never).records;
+  }
+
+  useV2(): this {
+    this.meta = [
+      ["key", "value"],
+      ["schema_version", "2"],
+    ];
+    return this;
   }
 }
 
@@ -507,5 +544,105 @@ describe("repo guardrails", () => {
     );
     expect(session.local_date).toBe("2026-07-29");
     expect(session.tz).toBe("Asia/Singapore");
+  });
+});
+
+describe("cross-device active timer", () => {
+  const timer = (logId: string, opts: Partial<ActiveTimer> = {}): ActiveTimer => ({
+    log_id: logId,
+    goal_id: "g1",
+    segments: [{ start: clock, end: null }],
+    note: "",
+    updated_at: new Date(clock).toISOString(),
+    deleted: false,
+    device_id: "dev-a",
+    ...opts,
+  });
+
+  const makeBridge = (local: ActiveTimer | undefined) => {
+    const applied: Reconciliation[] = [];
+    const bridge: ActiveBridge = {
+      readLocal: async () => local,
+      apply: async (r) => {
+        applied.push(r);
+      },
+    };
+    return { bridge, applied };
+  };
+
+  const enqueueActive = (t: ActiveTimer) =>
+    database.outbox.add({
+      entity: "active",
+      entity_id: t.log_id,
+      payload: t,
+      created_at: t.updated_at,
+      attempts: 0,
+    });
+
+  it("pushes the active row to the active tab on a v2 sheet", async () => {
+    const sheet = new FakeSheet().useV2();
+    await enqueueActive(timer("L-mine"));
+    const { bridge } = makeBridge(undefined);
+    const engine = new SyncEngine(sheet.client(), {
+      database,
+      now: () => new Date(clock),
+      active: bridge,
+    });
+
+    await engine.push();
+
+    expect(sheet.activeRecords().map((a) => a.log_id)).toContain("L-mine");
+    expect(await database.outbox.count()).toBe(0);
+  });
+
+  it("pulls a remote timer and hands the reconciliation to the bridge", async () => {
+    const sheet = new FakeSheet().useV2();
+    sheet.active.push(activeToRow(timer("L-remote", { device_id: "dev-mac" })));
+    const { bridge, applied } = makeBridge(undefined); // idle on this device
+
+    const engine = new SyncEngine(sheet.client(), {
+      database,
+      now: () => new Date(clock),
+      active: bridge,
+    });
+    await engine.pull();
+
+    expect(applied).toHaveLength(1);
+    expect(applied[0]!.local?.log_id).toBe("L-remote");
+    expect(applied[0]!.changed).toBe(true);
+  });
+
+  it("stays off on a v1 sheet: never reconciles, and drops a stray active op", async () => {
+    const sheet = new FakeSheet(); // schema_version 1
+    sheet.hasActiveTab = false;
+    await enqueueActive(timer("L-mine"));
+    const { bridge, applied } = makeBridge(timer("L-mine"));
+
+    const engine = new SyncEngine(sheet.client(), {
+      database,
+      now: () => new Date(clock),
+      active: bridge,
+    });
+    const result = await engine.sync(); // must not throw
+
+    expect(applied).toHaveLength(0); // reconcile skipped (schema < 2)
+    expect(result.deferred).toBe(false);
+    // The undeliverable active op is dropped, not left wedged as "stuck".
+    expect(await database.outbox.count()).toBe(0);
+  });
+
+  it("degrades gracefully when a v2 sheet is missing the active tab", async () => {
+    const sheet = new FakeSheet().useV2();
+    sheet.hasActiveTab = false; // declares v2 but the tab isn't there
+    const { bridge, applied } = makeBridge(undefined);
+
+    const engine = new SyncEngine(sheet.client(), {
+      database,
+      now: () => new Date(clock),
+      active: bridge,
+    });
+    await expect(engine.pull()).resolves.toBeDefined(); // no throw
+
+    expect(applied).toHaveLength(0);
   });
 });
