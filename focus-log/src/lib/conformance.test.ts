@@ -16,7 +16,14 @@ import { describe, expect, it } from "vitest";
 import { elapsedSeconds, type Segment, type TimerState } from "./timer/engine";
 import { compareVersions, pickWinner, type Versioned } from "./sync/merge";
 import { decodeSegments, encodeSegments } from "./sheets/schema";
-import { closedActive, finalizedSession, runningActive, timerFromActive } from "./timer/lifecycle";
+import {
+  closedActive,
+  finalizedSession,
+  reconcileActive,
+  runningActive,
+  timerFromActive,
+} from "./timer/lifecycle";
+import type { ActiveTimer } from "./sheets/schema";
 
 function loadVectors<T>(file: string): T {
   const path = fileURLToPath(new URL(`../../../conformance/${file}`, import.meta.url));
@@ -122,4 +129,33 @@ describe("conformance: active-timer lifecycle mapping", () => {
       expect(timerFromActive(active)).toEqual(state);
     },
   );
+});
+
+describe("conformance: reconcileActive", () => {
+  interface ActiveJson {
+    log_id: string;
+    goal_id: string;
+    segments: SegPair[];
+    note: string;
+    updated_at: string;
+    deleted: boolean;
+    device_id: string;
+  }
+  const toActive = (a: ActiveJson | null): ActiveTimer | undefined =>
+    a ? { ...a, segments: toSegments(a.segments) } : undefined;
+
+  interface ReconcileCase {
+    name: string;
+    local: ActiveJson | null;
+    remote: ActiveJson[];
+    expected: { local: ActiveJson | null; closeLogId: string | null; changed: boolean };
+  }
+  const { cases } = loadVectors<{ cases: ReconcileCase[] }>("reconcile.json");
+
+  it.each(cases)("$name", ({ local, remote, expected }) => {
+    const result = reconcileActive(toActive(local), remote.map(toActive) as ActiveTimer[]);
+    expect(result.local).toEqual(toActive(expected.local));
+    expect(result.closeLogId ?? null).toBe(expected.closeLogId);
+    expect(result.changed).toBe(expected.changed);
+  });
 });
