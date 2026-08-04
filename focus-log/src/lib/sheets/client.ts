@@ -48,13 +48,7 @@ export class SheetsError extends Error {
     message: string,
     readonly status: number,
     readonly kind:
-      | "auth"
-      | "permission"
-      | "not_found"
-      | "rate_limit"
-      | "server"
-      | "network"
-      | "bad_request",
+      "auth" | "permission" | "not_found" | "rate_limit" | "server" | "network" | "bad_request",
     readonly retryable: boolean,
   ) {
     super(message);
@@ -86,7 +80,12 @@ function classify(status: number, body: string): SheetsError {
     case status >= 500:
       return new SheetsError(`Google Sheets is unavailable. ${detail}`, status, "server", true);
     default:
-      return new SheetsError(`Sheets request failed (${status}). ${detail}`, status, "bad_request", false);
+      return new SheetsError(
+        `Sheets request failed (${status}). ${detail}`,
+        status,
+        "bad_request",
+        false,
+      );
   }
 }
 
@@ -108,7 +107,11 @@ export const DEFAULT_RETRY: RetryPolicy = {
   jitter: () => Math.random(),
 };
 
-export function backoffDelay(attempt: number, policy: RetryPolicy, retryAfterSeconds?: number): number {
+export function backoffDelay(
+  attempt: number,
+  policy: RetryPolicy,
+  retryAfterSeconds?: number,
+): number {
   // Google's Retry-After is authoritative when present.
   if (retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)) {
     return Math.min(retryAfterSeconds * 1000, policy.maxDelayMs);
@@ -248,6 +251,28 @@ export class SheetsClient {
   }
 
   /**
+   * Reads the `active` tab (v2+). Returns `null` when the tab does not exist: a
+   * v1 sheet simply has no `active` tab, and the cross-device timer is off there
+   * rather than an error. Read in its own request so a missing tab can never
+   * break the main {@link readAll}. Retryable failures still propagate so the
+   * caller defers.
+   */
+  async readActive(): Promise<Row[] | null> {
+    try {
+      const values = await this.batchGet([RANGES.active]);
+      return values.get(RANGES.active) ?? [];
+    } catch (error) {
+      if (
+        error instanceof SheetsError &&
+        (error.kind === "bad_request" || error.kind === "not_found")
+      ) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Appends rows. Every mutation in focus-log is an append — see
    * src/lib/sync/merge.ts for why nothing is ever updated in place.
    */
@@ -264,11 +289,17 @@ export class SheetsClient {
 
   /** Replaces a tab's contents with `rows` (header included). Used by compaction. */
   async replaceTab(tab: TabName, range: string, rows: readonly Cell[][]): Promise<void> {
-    await this.request(this.url(`/values/${encodeURIComponent(range)}:clear`), { method: "POST", body: "{}" });
+    await this.request(this.url(`/values/${encodeURIComponent(range)}:clear`), {
+      method: "POST",
+      body: "{}",
+    });
     if (rows.length === 0) return;
     await this.request(
       this.url(`/values/${encodeURIComponent(`${tab}!A1`)}`, { valueInputOption: "RAW" }),
-      { method: "PUT", body: JSON.stringify({ range: `${tab}!A1`, majorDimension: "ROWS", values: rows }) },
+      {
+        method: "PUT",
+        body: JSON.stringify({ range: `${tab}!A1`, majorDimension: "ROWS", values: rows }),
+      },
     );
   }
 

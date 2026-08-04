@@ -1,5 +1,6 @@
 package com.focuslog.core
 
+import com.focuslog.core.model.ActiveTimer
 import com.focuslog.core.model.Session
 import com.focuslog.core.model.Versioned
 import com.focuslog.core.sheets.decodeSegments
@@ -12,8 +13,10 @@ import com.focuslog.core.timer.TimerEngine
 import com.focuslog.core.timer.TimerState
 import com.focuslog.core.timer.closedActive
 import com.focuslog.core.timer.finalizedSession
+import com.focuslog.core.timer.reconcileActive
 import com.focuslog.core.timer.runningActive
 import com.focuslog.core.timer.timerFromActive
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.DynamicTest
@@ -175,4 +178,39 @@ class ConformanceTest {
         deleted = m["deleted"] as Boolean,
         deviceId = m["device_id"] as String,
     )
+
+    private fun activeOf(m: Map<String, Any?>?): ActiveTimer? {
+        if (m == null) return null
+        return ActiveTimer(
+            logId = m["log_id"] as String,
+            goalId = m["goal_id"] as String,
+            segments = segmentsOf(m["segments"]),
+            note = m["note"] as String,
+            updatedAt = m["updated_at"] as String,
+            deleted = m["deleted"] as Boolean,
+            deviceId = m["device_id"] as String,
+        )
+    }
+
+    @TestFactory
+    fun reconcile(): List<DynamicTest> {
+        @Suppress("UNCHECKED_CAST")
+        val cases = load("reconcile.json")["cases"] as List<Map<String, Any?>>
+        return cases.map { c ->
+            DynamicTest.dynamicTest(c["name"] as String) {
+                @Suppress("UNCHECKED_CAST")
+                val local = activeOf(c["local"] as Map<String, Any?>?)
+                @Suppress("UNCHECKED_CAST")
+                val remote = (c["remote"] as List<Map<String, Any?>>).map { activeOf(it)!! }
+                @Suppress("UNCHECKED_CAST")
+                val expected = c["expected"] as Map<String, Any?>
+
+                val result = reconcileActive(local, remote)
+                assertEquals(activeOf(expected["local"] as Map<String, Any?>?), result.local)
+                assertEquals(expected["closeLogId"] as String?, result.closeLogId)
+                assertEquals(expected["changed"] as Boolean, result.changed)
+                if (expected["local"] == null) assertNull(result.local)
+            }
+        }
+    }
 }

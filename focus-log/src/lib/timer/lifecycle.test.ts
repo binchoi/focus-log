@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { start, pause, resume, type TimerState } from "./engine";
-import { closedActive, finalizedSession, runningActive, timerFromActive } from "./lifecycle";
+import {
+  closedActive,
+  finalizedSession,
+  reconcileActive,
+  runningActive,
+  timerFromActive,
+} from "./lifecycle";
+import type { ActiveTimer } from "../sheets/schema";
 
 const ctx = { logId: "log-abc", deviceId: "dev-1", now: 0 };
 
@@ -66,5 +73,89 @@ describe("timerFromActive", () => {
     const rebuilt = timerFromActive(runningActive(s, ctx));
     expect(rebuilt).toEqual(s);
     expect(rebuilt.startedAt).toBe(s.segments[0]!.start);
+  });
+});
+
+describe("reconcileActive", () => {
+  function active(logId: string, startedAt: number, opts: Partial<ActiveTimer> = {}): ActiveTimer {
+    return {
+      log_id: logId,
+      goal_id: "g1",
+      segments: [{ start: startedAt, end: null }],
+      note: "",
+      updated_at: new Date(startedAt).toISOString(),
+      deleted: false,
+      device_id: "dev-a",
+      ...opts,
+    };
+  }
+
+  it("stays idle when nothing is running anywhere", () => {
+    expect(reconcileActive(undefined, [])).toEqual({ local: undefined, changed: false });
+  });
+
+  it("adopts a timer running on another device when idle here", () => {
+    const remote = active("L1", 1000, { device_id: "dev-mac" });
+    const r = reconcileActive(undefined, [remote]);
+    expect(r).toEqual({ local: remote, changed: true });
+  });
+
+  it("ignores a tombstoned remote timer when idle", () => {
+    const r = reconcileActive(undefined, [active("L1", 1000, { deleted: true })]);
+    expect(r).toEqual({ local: undefined, changed: false });
+  });
+
+  it("clears the local timer when another device stopped it (remote tombstone)", () => {
+    const local = active("L1", 1000);
+    const remoteClosed = active("L1", 1000, {
+      deleted: true,
+      updated_at: "2026-02-02T00:00:00.000Z",
+    });
+    expect(reconcileActive(local, [remoteClosed])).toEqual({ local: undefined, changed: true });
+  });
+
+  it("adopts a newer version of my own timer (paused on another device)", () => {
+    const local = active("L1", 1000, { segments: [{ start: 1000, end: null }] });
+    const pausedRemote = active("L1", 1000, {
+      segments: [{ start: 1000, end: 5000 }], // paused elsewhere
+      updated_at: "2026-02-02T00:00:00.000Z",
+      device_id: "dev-phone",
+    });
+    const r = reconcileActive(local, [pausedRemote]);
+    expect(r.local).toEqual(pausedRemote);
+    expect(r.changed).toBe(true);
+    expect(r.closeLogId).toBeUndefined();
+  });
+
+  it("keeps my not-yet-synced timer (remote has no record of it)", () => {
+    const local = active("L1", 1000);
+    expect(reconcileActive(local, [])).toEqual({ local, changed: false });
+  });
+
+  it("keeps mine when it started earliest, even if a later timer exists remotely", () => {
+    const local = active("mine", 1000);
+    const laterOther = active("other", 5000, { device_id: "dev-x" });
+    const r = reconcileActive(local, [laterOther]);
+    expect(r.local).toBe(local);
+    expect(r.changed).toBe(false);
+    expect(r.closeLogId).toBeUndefined();
+  });
+
+  it("yields to an earlier concurrent start and auto-closes mine (no session logged)", () => {
+    const earlierOther = active("aaa", 1000, { device_id: "dev-mac" });
+    const local = active("zzz", 3000, { device_id: "dev-phone" });
+    const r = reconcileActive(local, [earlierOther]);
+    expect(r.local).toEqual(earlierOther);
+    expect(r.closeLogId).toBe("zzz");
+    expect(r.changed).toBe(true);
+  });
+
+  it("breaks a started_at tie by log_id so both devices agree", () => {
+    const local = active("bbb", 2000);
+    const other = active("aaa", 2000, { device_id: "dev-x" });
+    const r = reconcileActive(local, [other]);
+    // "aaa" < "bbb", so the other wins deterministically and mine is closed.
+    expect(r.local).toEqual(other);
+    expect(r.closeLogId).toBe("bbb");
   });
 });

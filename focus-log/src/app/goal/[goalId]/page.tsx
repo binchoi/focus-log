@@ -40,6 +40,8 @@ interface PendingLog {
   end: Date;
   seconds: number;
   note: string;
+  /** The reserved session id from the running timer, reused at finalise. */
+  logId?: string;
 }
 
 export default function GoalPage() {
@@ -93,6 +95,9 @@ export default function GoalPage() {
           note,
           durationSecondsOverride: seconds,
           source: "timer",
+          // Reuse the id minted at start, so two devices ending this timer
+          // produce one session the reducer collapses (no double-count).
+          logId: pending.logId,
         });
         // Only release the running session once it is committed locally.
         await discardTimer();
@@ -349,27 +354,27 @@ export default function GoalPage() {
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={0}
-                        aria-label={`Minutes for the session on ${session.local_date}`}
-                        className="num h-8 w-20 px-2"
-                        defaultValue={Math.round(session.duration_seconds / 60)}
-                        onBlur={(event) => {
-                          const seconds = clampAdjustment(Number(event.target.value) * 60);
-                          if (seconds !== session.duration_seconds) {
-                            void (async () => {
-                              await updateSession(session.log_id, { duration_seconds: seconds });
-                              notifyMutation();
-                            })();
-                          }
-                        }}
-                      />
-                      {/* The exact duration, because a 40-second session rounds
+                        <Input
+                          type="number"
+                          min={0}
+                          aria-label={`Minutes for the session on ${session.local_date}`}
+                          className="num h-8 w-20 px-2"
+                          defaultValue={Math.round(session.duration_seconds / 60)}
+                          onBlur={(event) => {
+                            const seconds = clampAdjustment(Number(event.target.value) * 60);
+                            if (seconds !== session.duration_seconds) {
+                              void (async () => {
+                                await updateSession(session.log_id, { duration_seconds: seconds });
+                                notifyMutation();
+                              })();
+                            }
+                          }}
+                        />
+                        {/* The exact duration, because a 40-second session rounds
                           to "0" minutes and that reads as lost data. */}
-                      <span className="num shrink-0 text-xs text-cream-600">
-                        {formatTotal(session.duration_seconds)}
-                      </span>
+                        <span className="num shrink-0 text-xs text-cream-600">
+                          {formatTotal(session.duration_seconds)}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-2.5">

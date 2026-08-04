@@ -1,0 +1,97 @@
+{
+  "description": "reconcileActive(local, remote): what a device's local timer becomes after a pull. `local` is the device's timer (or null); `remote` is the reduced-by-log_id latest active rows (tombstones included). Both cores must agree exactly, or two devices disagree on the shared timer. An active record is {log_id, goal_id, segments:[[startMs,endMs|null]], note, updated_at, deleted, device_id}.",
+  "cases": [
+    {
+      "name": "idle with nothing running stays idle",
+      "local": null,
+      "remote": [],
+      "expected": { "local": null, "closeLogId": null, "changed": false }
+    },
+    {
+      "name": "idle adopts a timer running on another device",
+      "local": null,
+      "remote": [
+        { "log_id": "L1", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-mac" }
+      ],
+      "expected": {
+        "local": { "log_id": "L1", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-mac" },
+        "closeLogId": null,
+        "changed": true
+      }
+    },
+    {
+      "name": "idle ignores a tombstoned remote timer",
+      "local": null,
+      "remote": [
+        { "log_id": "L1", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": true, "device_id": "dev-mac" }
+      ],
+      "expected": { "local": null, "closeLogId": null, "changed": false }
+    },
+    {
+      "name": "clears my timer when another device stopped it",
+      "local": { "log_id": "L1", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-a" },
+      "remote": [
+        { "log_id": "L1", "goal_id": "g1", "segments": [[1000, 9000]], "note": "", "updated_at": "2026-02-02T00:00:00.000Z", "deleted": true, "device_id": "dev-b" }
+      ],
+      "expected": { "local": null, "closeLogId": null, "changed": true }
+    },
+    {
+      "name": "adopts a newer version of my own timer (paused elsewhere)",
+      "local": { "log_id": "L1", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-a" },
+      "remote": [
+        { "log_id": "L1", "goal_id": "g1", "segments": [[1000, 5000]], "note": "", "updated_at": "2026-02-02T00:00:00.000Z", "deleted": false, "device_id": "dev-phone" }
+      ],
+      "expected": {
+        "local": { "log_id": "L1", "goal_id": "g1", "segments": [[1000, 5000]], "note": "", "updated_at": "2026-02-02T00:00:00.000Z", "deleted": false, "device_id": "dev-phone" },
+        "closeLogId": null,
+        "changed": true
+      }
+    },
+    {
+      "name": "keeps my not-yet-synced timer when remote has no record of it",
+      "local": { "log_id": "L1", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-a" },
+      "remote": [],
+      "expected": {
+        "local": { "log_id": "L1", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-a" },
+        "closeLogId": null,
+        "changed": false
+      }
+    },
+    {
+      "name": "keeps mine when it started earliest",
+      "local": { "log_id": "mine", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-a" },
+      "remote": [
+        { "log_id": "other", "goal_id": "g1", "segments": [[5000, null]], "note": "", "updated_at": "2026-01-01T00:00:05.000Z", "deleted": false, "device_id": "dev-x" }
+      ],
+      "expected": {
+        "local": { "log_id": "mine", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-a" },
+        "closeLogId": null,
+        "changed": false
+      }
+    },
+    {
+      "name": "yields to an earlier concurrent start and auto-closes mine",
+      "local": { "log_id": "zzz", "goal_id": "g1", "segments": [[3000, null]], "note": "", "updated_at": "2026-01-01T00:00:03.000Z", "deleted": false, "device_id": "dev-phone" },
+      "remote": [
+        { "log_id": "aaa", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-mac" }
+      ],
+      "expected": {
+        "local": { "log_id": "aaa", "goal_id": "g1", "segments": [[1000, null]], "note": "", "updated_at": "2026-01-01T00:00:01.000Z", "deleted": false, "device_id": "dev-mac" },
+        "closeLogId": "zzz",
+        "changed": true
+      }
+    },
+    {
+      "name": "breaks a started_at tie by log_id so both devices agree",
+      "local": { "log_id": "bbb", "goal_id": "g1", "segments": [[2000, null]], "note": "", "updated_at": "2026-01-01T00:00:02.000Z", "deleted": false, "device_id": "dev-a" },
+      "remote": [
+        { "log_id": "aaa", "goal_id": "g1", "segments": [[2000, null]], "note": "", "updated_at": "2026-01-01T00:00:02.000Z", "deleted": false, "device_id": "dev-x" }
+      ],
+      "expected": {
+        "local": { "log_id": "aaa", "goal_id": "g1", "segments": [[2000, null]], "note": "", "updated_at": "2026-01-01T00:00:02.000Z", "deleted": false, "device_id": "dev-x" },
+        "closeLogId": "bbb",
+        "changed": true
+      }
+    }
+  ]
+}

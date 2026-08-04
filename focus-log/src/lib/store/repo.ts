@@ -13,7 +13,13 @@
 
 import { db, type FocusLogDb, type OutboxOp } from "./db";
 import { getDeviceId, newId } from "./ids";
-import { GoalSchema, SessionSchema, type Goal, type Session } from "../sheets/schema";
+import {
+  GoalSchema,
+  SessionSchema,
+  type ActiveTimer,
+  type Goal,
+  type Session,
+} from "../sheets/schema";
 import { durationSeconds, localDateOf, toIsoUtc, currentTimeZone } from "../time";
 
 /** Injected so tests are deterministic and don't depend on the wall clock. */
@@ -222,15 +228,46 @@ async function commit(
   await database.transaction("rw", database.goals, database.sessions, database.outbox, async () => {
     await write();
     const pending = await database.outbox.where("entity_id").equals(entityId).toArray();
-    // Only supersede ops that aren't currently being drained, so we never
-    // discard a row the sync engine has already sent.
-    const supersedable = pending.filter((op) => !op.leased_until);
+    // Supersede only ops of the SAME entity: a session and an active-timer row
+    // share a log_id, so matching entity_id alone would let a finalising timer's
+    // active tombstone delete the very session being logged. And only ops not
+    // being drained, so we never discard a row already in flight.
+    const supersedable = pending.filter((op) => !op.leased_until && op.entity === entity);
     if (supersedable.length > 0) {
       await database.outbox.bulkDelete(supersedable.map((op) => op.op_id!));
     }
     await database.outbox.add({
       entity,
       entity_id: entityId,
+      payload,
+      created_at: payload.updated_at,
+      attempts: 0,
+    });
+  });
+}
+
+/**
+ * Queues the shared active-timer row (running/paused publish, or a `deleted`
+ * tombstone) for the sheet. Unlike {@link commit}, there is no local record to
+ * write — the running timer's local home is the `activeSession` store. Collapses
+ * to one op per `log_id`, so rapid pause/resume never bloats the queue.
+ */
+export async function enqueueActive(
+  payload: ActiveTimer,
+  context: RepoContext = {},
+): Promise<void> {
+  const { database } = ctx(context);
+  await database.transaction("rw", database.outbox, async () => {
+    const pending = await database.outbox.where("entity_id").equals(payload.log_id).toArray();
+    // Same-entity only: never collapse a queued session that happens to share
+    // this timer's log_id (see the note in commit()).
+    const supersedable = pending.filter((op) => !op.leased_until && op.entity === "active");
+    if (supersedable.length > 0) {
+      await database.outbox.bulkDelete(supersedable.map((op) => op.op_id!));
+    }
+    await database.outbox.add({
+      entity: "active",
+      entity_id: payload.log_id,
       payload,
       created_at: payload.updated_at,
       attempts: 0,

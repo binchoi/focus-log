@@ -10,16 +10,16 @@
  */
 
 import Dexie, { type EntityTable } from "dexie";
-import type { Goal, Session } from "../sheets/schema";
+import type { ActiveTimer, Goal, Session } from "../sheets/schema";
 
 /** A pending mutation waiting to reach the spreadsheet. */
 export interface OutboxOp {
   op_id?: number;
-  entity: "goal" | "session";
+  entity: "goal" | "session" | "active";
   /** goal_id or log_id. Lets us collapse repeated edits of one record. */
   entity_id: string;
   /** The full row to append — append-only, so there is no diff to apply. */
-  payload: Goal | Session;
+  payload: Goal | Session | ActiveTimer;
   created_at: string;
   attempts: number;
   last_error?: string;
@@ -37,6 +37,12 @@ export interface ActiveSession {
   note: string;
   device_id: string;
   updated_at: number;
+  /**
+   * The session id, minted at start and reused at finalise so the shared `active`
+   * row and the eventual `session` row share one id. Optional so a row written by
+   * an older build still loads (it just won't sync cross-device until restarted).
+   */
+  log_id?: string;
 }
 
 export interface StoredCredentials {

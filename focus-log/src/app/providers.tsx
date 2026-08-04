@@ -16,6 +16,8 @@ import type { StoredCredentials } from "@lib/store/db";
 import { SyncEngine, type SyncResult } from "@lib/sync/engine";
 import { createDebouncedTrigger, installSyncTriggers } from "@lib/sync/triggers";
 import { pendingCount } from "@lib/store/repo";
+import { createActiveBridge } from "@lib/timer/activeBridge";
+import { timerStore } from "@lib/timer/store";
 
 export type ConnectionState = "loading" | "unconfigured" | "ready";
 
@@ -72,6 +74,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         spreadsheetId: credentials.spreadsheetId,
         tokens: tokenProviderFor(credentials),
       }),
+      { active: createActiveBridge() },
     );
   }, [credentials]);
 
@@ -113,10 +116,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // installSyncTriggers fires its startup sync on a timeout, so nothing here
     // updates state synchronously during the effect.
     const teardown = installSyncTriggers({ onTrigger: () => void syncNow(), immediate: true });
+    // Timer changes (start/pause/resume/stop) schedule a debounced sync too, so
+    // the shared `active` row reaches other devices promptly rather than waiting
+    // for the 60s poll. Adopting a remote timer enqueues nothing, so reconcile
+    // quiesces after one cycle — no feedback loop.
+    const unsubscribeTimer = timerStore().subscribe(() => debounced.request("timer"));
     // Unlike the old code's uncleaned setInterval (C5), every listener and timer
     // registered here is torn down.
     return () => {
       teardown();
+      unsubscribeTimer();
       debounced.cancel();
     };
   }, [engine, syncNow, debounced]);

@@ -16,18 +16,34 @@ import { RANGES } from "../sheets/columns";
 import type { SheetsClient } from "../sheets/client";
 import { SheetsError } from "../sheets/client";
 import {
+  activeToRow,
   goalToRow,
+  parseActiveRows,
   parseGoalRows,
   parseMetaRows,
   parseSessionRows,
   sessionToRow,
+  type ActiveTimer,
   type Goal,
   type ParseFailure,
   type Session,
 } from "../sheets/schema";
 import { SCHEMA_VERSION } from "../sheets/columns";
 import { db, SYNC_META_KEYS, type FocusLogDb, type OutboxOp } from "../store/db";
-import { mergeRecords } from "./merge";
+import { mergeRecords, reduceLatest } from "./merge";
+import { reconcileActive, type Reconciliation } from "../timer/lifecycle";
+
+/**
+ * Bridges the sync engine to the device's running timer without coupling it to
+ * the timer store. Pull hands the reconciled result back through `apply`; the
+ * engine never touches `activeSession` directly.
+ */
+export interface ActiveBridge {
+  /** This device's current timer as an `active` record, or undefined when idle. */
+  readLocal(): Promise<ActiveTimer | undefined>;
+  /** Persist the reconciliation: write/clear the local timer and enqueue any auto-close. */
+  apply(result: Reconciliation): Promise<void>;
+}
 
 export interface SyncResult {
   pulled: { goals: number; sessions: number };
@@ -57,6 +73,8 @@ export interface SyncOptions {
   leaseMs?: number;
   /** Give up on an op after this many failures, but never delete it. */
   maxAttempts?: number;
+  /** Cross-device running timer. Omitted → the `active` tab is never touched. */
+  active?: ActiveBridge;
 }
 
 const DEFAULT_LEASE_MS = 60_000;
@@ -67,6 +85,7 @@ export class SyncEngine {
   private readonly now: () => Date;
   private readonly leaseMs: number;
   private readonly maxAttempts: number;
+  private readonly active?: ActiveBridge;
   /** Serialises runs so two triggers cannot drain the outbox concurrently. */
   private inFlight: Promise<SyncResult> | undefined;
 
@@ -78,6 +97,7 @@ export class SyncEngine {
     this.now = options.now ?? (() => new Date());
     this.leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
     this.maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+    this.active = options.active;
   }
 
   /**
@@ -162,6 +182,15 @@ export class SyncEngine {
       }
     });
 
+    const resolvedSchema = Number.isFinite(schemaVersion) ? schemaVersion : undefined;
+    // Cache the sheet's schema so push (which runs before pull) knows whether the
+    // `active` tab exists without an extra round-trip.
+    await this.setMeta(
+      SYNC_META_KEYS.schemaVersion,
+      resolvedSchema === undefined ? "" : String(resolvedSchema),
+    );
+    await this.reconcileActiveTimer(resolvedSchema);
+
     await this.setMeta(SYNC_META_KEYS.lastPullAt, this.now().toISOString());
 
     return {
@@ -170,8 +199,27 @@ export class SyncEngine {
         sessions: sessionMerge.changedLocally.length,
       },
       malformed: { goals: remoteGoals.failures, sessions: remoteSessions.failures },
-      schemaVersion: Number.isFinite(schemaVersion) ? schemaVersion : undefined,
+      schemaVersion: resolvedSchema,
     };
+  }
+
+  /**
+   * Pull the `active` tab and reconcile it into this device's running timer.
+   * Only on a v2+ sheet with a bridge wired — a v1 sheet has no `active` tab, so
+   * the cross-device timer is simply off (no extra request, no error). Reconcile
+   * is idempotent, so the `apply` bridge can safely skip a stale write.
+   */
+  private async reconcileActiveTimer(schemaVersion: number | undefined): Promise<void> {
+    if (!this.active || schemaVersion === undefined || schemaVersion < 2) return;
+
+    const rows = await this.client.readActive();
+    if (rows === null) return; // tab absent → feature off, gracefully.
+
+    const parsed = parseActiveRows(rows);
+    const remote = [...reduceLatest(parsed.records, (a) => a.log_id).values()];
+    const local = await this.active.readLocal();
+    const result = reconcileActive(local, remote);
+    if (result.changed || result.closeLogId !== undefined) await this.active.apply(result);
   }
 
   // -------------------------------------------------------------------------
@@ -185,6 +233,7 @@ export class SyncEngine {
 
     const goalOps = claimed.filter((op) => op.entity === "goal");
     const sessionOps = claimed.filter((op) => op.entity === "session");
+    const activeOps = claimed.filter((op) => op.entity === "active");
 
     // Goals go first: a session referencing a goal the sheet hasn't seen yet
     // would look like an orphan to anyone reading mid-sync.
@@ -194,10 +243,30 @@ export class SyncEngine {
     const sessions = await this.pushBatch(sessionOps, RANGES.sessions, (op) =>
       sessionToRow(op.payload as Session),
     );
+    // The active timer is a best-effort broadcast, and only a v2 sheet has an
+    // `active` tab. Gate on the schema version learned by the last pull so a v1
+    // sheet is never even *asked* to append it — appending would 400, which the
+    // browser logs as a console error even though we'd drop it. If the sheet
+    // can't hold the timer, drop the ops silently; the running timer re-publishes
+    // on its next change once we know the sheet is v2.
+    const cachedSchema = Number(
+      (await this.database.syncMeta.get(SYNC_META_KEYS.schemaVersion))?.value,
+    );
+    let active: { pushed: number; deferredReason?: string } = { pushed: 0 };
+    if (Number.isFinite(cachedSchema) && cachedSchema >= 2) {
+      active = await this.pushBatch(
+        activeOps,
+        RANGES.active,
+        (op) => activeToRow(op.payload as ActiveTimer),
+        { dropOnFatal: true },
+      );
+    } else if (activeOps.length > 0) {
+      await this.database.outbox.bulkDelete(activeOps.map((op) => op.op_id!));
+    }
 
-    const pushed = goals.pushed + sessions.pushed;
+    const pushed = goals.pushed + sessions.pushed + active.pushed;
     if (pushed > 0) await this.setMeta(SYNC_META_KEYS.lastPushAt, this.now().toISOString());
-    const deferredReason = goals.deferredReason ?? sessions.deferredReason;
+    const deferredReason = goals.deferredReason ?? sessions.deferredReason ?? active.deferredReason;
     return { pushed, ...(deferredReason !== undefined ? { deferredReason } : {}) };
   }
 
@@ -227,19 +296,27 @@ export class SyncEngine {
     ops: OutboxOp[],
     range: string,
     toRow: (op: OutboxOp) => (string | number | boolean | null | undefined)[],
+    options: { dropOnFatal?: boolean } = {},
   ): Promise<{ pushed: number; deferredReason?: string }> {
     if (ops.length === 0) return { pushed: 0 };
 
     try {
       await this.client.append(range, ops.map(toRow));
     } catch (error) {
-      await this.releaseWithError(ops, error);
       // A retryable failure (offline, 429, 5xx) is expected, not exceptional:
-      // the ops stay queued and the next trigger picks them up. Anything else
-      // is a real misconfiguration the caller should surface.
+      // the ops stay queued and the next trigger picks them up.
       if (error instanceof SheetsError && error.retryable) {
+        await this.releaseWithError(ops, error);
         return { pushed: 0, deferredReason: error.message };
       }
+      // Non-retryable: for best-effort entities (the active timer), the sheet
+      // simply can't hold this row — drop the ops so they don't wedge the queue
+      // as stuck. For durable entities it's a real misconfiguration: surface it.
+      if (options.dropOnFatal) {
+        await this.database.outbox.bulkDelete(ops.map((op) => op.op_id!));
+        return { pushed: 0 };
+      }
+      await this.releaseWithError(ops, error);
       throw error;
     }
 
