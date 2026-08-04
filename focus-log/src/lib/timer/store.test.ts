@@ -139,3 +139,62 @@ describe("C11 regression: cross-tab notification", () => {
     }
   });
 });
+
+describe("cross-device publishing", () => {
+  it("enqueues an active op when the timer carries a log_id", async () => {
+    const store = new TimerStore(database);
+    await store.write(start("g1", T0, "", "log-1"), T0);
+    const ops = await database.outbox.toArray();
+    expect(ops).toHaveLength(1);
+    expect(ops[0]!.entity).toBe("active");
+    expect(ops[0]!.entity_id).toBe("log-1");
+    expect((ops[0]!.payload as { deleted: boolean }).deleted).toBe(false);
+  });
+
+  it("does not publish a timer with no log_id", async () => {
+    const store = new TimerStore(database);
+    await store.write(start("g1", T0), T0);
+    expect(await database.outbox.count()).toBe(0);
+  });
+
+  it("publishes a tombstone on clear", async () => {
+    const store = new TimerStore(database);
+    await store.write(start("g1", T0, "", "log-1"), T0);
+    await database.outbox.clear();
+    await store.clear();
+    const ops = await database.outbox.toArray();
+    expect(ops).toHaveLength(1);
+    expect(ops[0]!.entity).toBe("active");
+    expect((ops[0]!.payload as { deleted: boolean }).deleted).toBe(true);
+  });
+
+  it("adopts a remote timer via setLocal without publishing", async () => {
+    const store = new TimerStore(database);
+    await store.setLocal({
+      log_id: "log-remote",
+      goal_id: "g2",
+      segments: [{ start: T0, end: null }],
+      note: "deep",
+      updated_at: "2026-07-29T10:00:00.000Z",
+      deleted: false,
+      device_id: "dev-mac",
+    });
+    expect(store.snapshot()).toEqual({
+      goalId: "g2",
+      segments: [{ start: T0, end: null }],
+      startedAt: T0,
+      note: "deep",
+      logId: "log-remote",
+    });
+    expect(await database.outbox.count()).toBe(0); // adopting never publishes
+  });
+
+  it("clears via setLocal(undefined) without publishing", async () => {
+    const store = new TimerStore(database);
+    await store.write(start("g1", T0, "", "log-1"), T0);
+    await database.outbox.clear();
+    await store.setLocal(undefined);
+    expect(store.snapshot()).toBeUndefined();
+    expect(await database.outbox.count()).toBe(0);
+  });
+});
