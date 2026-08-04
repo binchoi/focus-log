@@ -13,7 +13,8 @@ convergence only holds if **every** client computes the *same* winner and the
 |---|---|---|
 | `elapsed.json` | `elapsedSeconds(segments, now)` — derived from timestamps, floored | `engine.ts` / `TimerEngine.kt` |
 | `lww.json` | `compareVersions` / `pickWinner` — later `updated_at` wins, `device_id` tiebreak | `merge.ts` / `Merge.kt` |
-| `segments-codec.json` | `encode`/`decode` of the `active` tab's `segments` cell | `schema.ts` / `RowCodec.kt` |
+| `segments-codec.json` | `encode`/`decode` of the `active` tab's `segments` cell (incl. rejects) | `schema.ts` / `RowCodec.kt` |
+| `active-mapping.json` | `runningActive`/`closedActive`/`finalizedSession` — active row ↔ timer ↔ finalized session | `lifecycle.ts` / `Lifecycle.kt` |
 
 **Encoding conventions**
 

@@ -23,11 +23,14 @@ append-only `reduceLatest` LWW collapses to one (`sync/merge.ts` / `sync/Merge.k
 compare `updated_at` as instant, tie-break `device_id`). No new reconciliation engine.
 
 **New `active` tab** (append-only, LWW singleton per `log_id`), columns
-`A:I`: `log_id, goal_id, segments(JSON), started_at, note, status(running|paused|closed),
-updated_at, deleted, device_id`. `status=closed`/`deleted` is the tombstone that tells
-devices the timer ended. It carries `segments` because the finalized `Session` row
-(start/end/duration) cannot represent a *currently paused* timer — that's the reason for
-a dedicated record rather than reusing an "open" `sessions` row.
+`A:G`: `log_id, goal_id, segments, note, updated_at, deleted, device_id` (as implemented
+in Phase 0). `deleted=TRUE` is the tombstone that tells devices the timer ended. Phase/
+running-vs-paused and `started_at` are *derived from `segments`* (no separate `status` or
+`started_at` column), and `segments` are packed into one cell as `startMs,endMs;startMs,`
+rather than JSON (dependency-free parity with the Kotlin core). It carries `segments`
+because the finalized `Session` row (start/end/duration) cannot represent a *currently
+paused* timer — that's the reason for a dedicated record rather than reusing an "open"
+`sessions` row.
 
 **Lifecycle**: START → write `active{running}` + local mirror (shared `log_id`). PAUSE/
 RESUME → append new version (debounced, like all mutations). STOP (any device) → append

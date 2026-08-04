@@ -269,7 +269,19 @@ test.describe("goal and session management", () => {
     }
   });
 
-  test("a backfilled session is attributed to the chosen day", async ({ page, context }) => {
+  test("a backfilled session is attributed to the chosen day", async ({ browser }) => {
+    // Pin the timezone and freeze the clock so the chosen start time is
+    // deterministically in the past. The form rejects future start times
+    // (backfill-dialog.tsx), and CI runners are UTC — so a hardcoded wall-clock
+    // time like 07:30 became "in the future" whenever the job started before
+    // that hour, which is exactly how this test used to flake. Pinning now to
+    // midday UTC keeps 07:30 comfortably in the past regardless of when or where
+    // the suite runs. setFixedTime (not install) leaves real timers running, so
+    // the sync engine still flushes to the sheet.
+    const context = await browser.newContext({ timezoneId: "UTC" });
+    const page = await context.newPage();
+    await page.clock.setFixedTime(new Date("2026-08-04T12:00:00Z"));
+
     const sheet = new FakeSheet();
     await sheet.install(context);
 
@@ -282,9 +294,8 @@ test.describe("goal and session management", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
-    // Set the time explicitly instead of relying on the default. The default is
-    // clock-derived, so leaving it alone would make this assertion depend on what
-    // time the suite happens to run — which is what it used to do.
+    // 07:30 is well before the frozen midday-UTC "now", so it is always a valid
+    // past time rather than depending on the wall clock the suite happens to run at.
     await dialog.locator("#bf-time").fill("07:30");
     await dialog.getByRole("button", { name: "45m" }).click();
     await dialog.getByRole("button", { name: /add session/i }).click();
@@ -297,6 +308,8 @@ test.describe("goal and session management", () => {
     // The local date is what the heatmap groups by, so it must be recorded.
     expect(manual.local_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(manual.tz).toBeTruthy();
+
+    await context.close();
   });
 
   test("the backfill form's own defaults are always submittable", async ({ browser }) => {
