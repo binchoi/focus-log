@@ -68,6 +68,8 @@ class FakeSheetsClient(
     var readResult: SheetRead = SheetRead(emptyList(), emptyList(), emptyList()),
     var readError: SheetsError? = null,
     var appendError: SheetsError? = null,
+    /** The `active` tab rows (header + data), or null to simulate a v1 sheet with no tab. */
+    var activeTab: List<Row>? = null,
 ) : SheetsClient {
     val appended = LinkedHashMap<String, MutableList<List<Cell>>>()
     /** Ranges in the order append() was called, so ordering can be asserted. */
@@ -77,6 +79,8 @@ class FakeSheetsClient(
         readError?.let { throw it }
         return readResult
     }
+
+    override suspend fun readActive(): List<Row>? = activeTab
 
     override suspend fun append(range: String, rows: List<List<Cell>>) {
         appendError?.let { throw it }

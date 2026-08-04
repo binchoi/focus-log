@@ -91,8 +91,16 @@ data class SheetRead(val goals: List<Row>, val sessions: List<Row>, val meta: Li
  * is testable without any network or credentials.
  */
 interface SheetsClient {
-    /** Reads all three tabs in one batched round-trip (UNFORMATTED_VALUE). */
+    /** Reads all three core tabs in one batched round-trip (UNFORMATTED_VALUE). */
     suspend fun readAll(): SheetRead
+
+    /**
+     * Reads the `active` tab (v2+), or returns null when the tab does not exist —
+     * a v1 sheet simply has no `active` tab, and the cross-device timer is off
+     * there rather than an error. Read on its own so a missing tab can never break
+     * [readAll]. Retryable failures still propagate so the caller defers.
+     */
+    suspend fun readActive(): List<Row>?
 
     /** Appends rows to a tab (RAW). Every mutation in focus-log is an append. */
     suspend fun append(range: String, rows: List<List<Cell>>)

@@ -1,5 +1,6 @@
 package com.focuslog.core.store
 
+import com.focuslog.core.model.ActiveTimer
 import com.focuslog.core.model.Goal
 import com.focuslog.core.model.Session
 import com.focuslog.core.model.Versioned
@@ -167,7 +168,11 @@ class Repo(
     ) {
         store.transaction {
             write()
-            val supersedable = store.outboxForEntity(entityId).filter { it.leasedUntil == null }
+            // Supersede only ops of the SAME entity: a session and an active-timer
+            // row share a logId, so matching entityId alone would let a finalising
+            // timer's active tombstone delete the very session being logged.
+            val supersedable = store.outboxForEntity(entityId)
+                .filter { it.leasedUntil == null && it.entity == entity }
             if (supersedable.isNotEmpty()) {
                 store.outboxDelete(supersedable.mapNotNull { it.opId })
             }
@@ -175,6 +180,31 @@ class Repo(
                 OutboxOp(
                     entity = entity,
                     entityId = entityId,
+                    payload = payload,
+                    createdAt = payload.updatedAt,
+                    attempts = 0,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Queues the shared active-timer row (running/paused publish, or a `deleted`
+     * tombstone) for the sheet. Unlike a normal mutation there is no local record
+     * to write — the running timer's local home is the watch's active-session
+     * store. Collapses to one op per `logId` (same-entity only, see [commit]).
+     */
+    suspend fun enqueueActive(payload: ActiveTimer) {
+        store.transaction {
+            val supersedable = store.outboxForEntity(payload.logId)
+                .filter { it.leasedUntil == null && it.entity == OutboxEntity.ACTIVE }
+            if (supersedable.isNotEmpty()) {
+                store.outboxDelete(supersedable.mapNotNull { it.opId })
+            }
+            store.outboxAdd(
+                OutboxOp(
+                    entity = OutboxEntity.ACTIVE,
+                    entityId = payload.logId,
                     payload = payload,
                     createdAt = payload.updatedAt,
                     attempts = 0,
