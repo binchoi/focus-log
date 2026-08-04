@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 import {
+  ACTIVE_COLUMNS,
   GOAL_COLUMNS,
   META_COLUMNS,
   SESSION_COLUMNS,
@@ -17,6 +18,7 @@ import {
   type Row,
 } from "./columns";
 import { cellAt, isBlank, toBoolean, toNumber, toSheetValue, toStringCell } from "./cells";
+import type { Segment } from "../timer/engine";
 
 // ---------------------------------------------------------------------------
 // Entities
@@ -60,7 +62,11 @@ export const SessionSchema = z
     goal_id: entityId,
     start_utc: isoUtc,
     end_utc: isoUtc,
-    duration_seconds: z.number().int().min(0).max(24 * 60 * 60),
+    duration_seconds: z
+      .number()
+      .int()
+      .min(0)
+      .max(24 * 60 * 60),
     local_date: localDate,
     tz: z.string().min(1).max(64).default("UTC"),
     note: z.string().max(2000).default(""),
@@ -78,6 +84,119 @@ export type Goal = z.infer<typeof GoalSchema>;
 export type Session = z.infer<typeof SessionSchema>;
 
 export type MetaEntry = { key: string; value: string };
+
+// ---------------------------------------------------------------------------
+// Active timer (the shared running session, v2+)
+// ---------------------------------------------------------------------------
+
+/**
+ * The scalar fields of an active-timer row. `segments` is handled separately
+ * because it packs a whole interval list into one cell (see the segments codec).
+ */
+const ActiveTimerRowSchema = z.object({
+  log_id: entityId,
+  goal_id: entityId,
+  note: z.string().max(2000).default(""),
+  updated_at: isoUtc,
+  deleted: z.boolean().default(false),
+  device_id: z.string().max(64).default(""),
+});
+
+export interface ActiveTimer {
+  log_id: string;
+  goal_id: string;
+  /** Focus intervals; the trailing segment is open (`end === null`) while running. */
+  segments: Segment[];
+  note: string;
+  updated_at: string;
+  deleted: boolean;
+  device_id: string;
+}
+
+/**
+ * Serialise focus intervals into a single cell as `startMs,endMs;startMs,` — an
+ * open (running) segment leaves its end blank. Deliberately not JSON: the Kotlin
+ * core has no JSON dependency, and this grammar parses identically in both with
+ * a `split`. Conformance vectors pin the two encoders together.
+ */
+export function encodeSegments(segments: Segment[]): string {
+  return segments.map((s) => `${s.start},${s.end ?? ""}`).join(";");
+}
+
+/** Inverse of {@link encodeSegments}. Throws on a malformed value so the row is reported, not shown. */
+export function decodeSegments(raw: string): Segment[] {
+  const trimmed = raw.trim();
+  if (trimmed === "") return [];
+  return trimmed.split(";").map((pair) => {
+    const parts = pair.split(",");
+    if (parts.length !== 2) {
+      throw new Error(`segment "${pair}" must be a single start,end pair`);
+    }
+    const start = Number(parts[0]);
+    const endText = parts[1]!.trim();
+    const end = endText === "" ? null : Number(endText);
+    if (!Number.isInteger(start) || (end !== null && !Number.isInteger(end))) {
+      throw new Error(`segment "${pair}" is not epoch-millisecond integers`);
+    }
+    if (end !== null && end < start) {
+      throw new Error(`segment "${pair}" ends before it starts`);
+    }
+    return { start, end };
+  });
+}
+
+export function parseActiveRows(values: Row[] | undefined | null): ParseResult<ActiveTimer> {
+  const records: ActiveTimer[] = [];
+  const failures: ParseFailure[] = [];
+
+  stripHeader(values).forEach((row, index) => {
+    if (row.every((cell) => isBlank(cell))) return;
+
+    const fields = rowToRaw(row, ACTIVE_COLUMNS);
+    const problems: string[] = [];
+
+    const scalars = ActiveTimerRowSchema.safeParse(fields);
+    if (!scalars.success) {
+      problems.push(
+        ...scalars.error.issues.map((i) =>
+          i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message,
+        ),
+      );
+    }
+
+    let segments: Segment[] = [];
+    try {
+      segments = decodeSegments(typeof fields.segments === "string" ? fields.segments : "");
+      if (segments.length === 0)
+        problems.push("segments: an active timer needs at least one segment");
+    } catch (error) {
+      problems.push(`segments: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    if (!scalars.success || problems.length > 0) {
+      failures.push({ sheetRow: index + 2, problems, raw: row });
+      return;
+    }
+    records.push({ ...scalars.data, segments });
+  });
+
+  return { records, failures };
+}
+
+export function activeToRow(active: ActiveTimer): Cell[] {
+  return entityToRow(
+    {
+      log_id: active.log_id,
+      goal_id: active.goal_id,
+      segments: encodeSegments(active.segments),
+      note: active.note,
+      updated_at: active.updated_at,
+      deleted: active.deleted,
+      device_id: active.device_id,
+    },
+    ACTIVE_COLUMNS,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Row codec
@@ -131,7 +250,9 @@ export interface ParseResult<T> {
 function parseRows<T>(
   rows: Row[],
   columns: readonly ColumnDef[],
-  schema: { safeParse: (v: unknown) => { success: true; data: T } | { success: false; error: z.ZodError } },
+  schema: {
+    safeParse: (v: unknown) => { success: true; data: T } | { success: false; error: z.ZodError };
+  },
 ): ParseResult<T> {
   const records: T[] = [];
   const failures: ParseFailure[] = [];

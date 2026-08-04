@@ -1,7 +1,9 @@
 package com.focuslog.core.sheets
 
+import com.focuslog.core.model.ActiveTimer
 import com.focuslog.core.model.Goal
 import com.focuslog.core.model.Session
+import com.focuslog.core.timer.Segment
 
 /**
  * Row codec — a port of the serialise/parse half of `sheets/schema.ts`.
@@ -60,6 +62,47 @@ fun sessionToRow(session: Session): List<Cell> = listOf(
 
 fun metaToRows(entries: Map<String, String>): List<List<Cell>> =
     entries.map { (key, value) -> listOf<Cell>(toSheetValue(key), toSheetValue(value)) }
+
+fun activeToRow(active: ActiveTimer): List<Cell> = listOf(
+    active.logId,
+    active.goalId,
+    encodeSegments(active.segments),
+    active.note,
+    active.updatedAt,
+    active.deleted,
+    active.deviceId,
+).map { toSheetValue(it) }
+
+/**
+ * Serialise focus intervals into one cell as `startMs,endMs;startMs,` — an open
+ * (running) segment leaves its end blank. Not JSON, so it parses identically here
+ * and in the web core with a `split`; the conformance vectors pin the two.
+ */
+fun encodeSegments(segments: List<Segment>): String =
+    segments.joinToString(";") { "${it.start},${it.end ?: ""}" }
+
+/** Inverse of [encodeSegments]. Throws on a malformed value so the row is reported, not shown. */
+fun decodeSegments(raw: String): List<Segment> {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return emptyList()
+    return trimmed.split(";").map { pair ->
+        val parts = pair.split(",")
+        require(parts.size == 2) { "segment \"$pair\" must be a single start,end pair" }
+        val start = parts[0].trim().toLongOrNull()
+            ?: throw IllegalArgumentException("segment \"$pair\" is not epoch-millisecond integers")
+        val endText = parts[1].trim()
+        val end = if (endText.isEmpty()) {
+            null
+        } else {
+            endText.toLongOrNull()
+                ?: throw IllegalArgumentException("segment \"$pair\" is not epoch-millisecond integers")
+        }
+        if (end != null && end < start) {
+            throw IllegalArgumentException("segment \"$pair\" ends before it starts")
+        }
+        Segment(start, end)
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Parse
@@ -184,6 +227,36 @@ fun parseSessionRows(values: List<Row>?): ParseResult<Session> = parseRows(strip
             updatedAt = updatedAt,
             deleted = toBoolean(cellAt(row, 10)),
             deviceId = toStringCell(cellAt(row, 11)),
+        )
+    }
+}
+
+fun parseActiveRows(values: List<Row>?): ParseResult<ActiveTimer> = parseRows(stripHeader(values)) { row ->
+    runCatching {
+        val p = RowProblems()
+        val logId = toStringCell(cellAt(row, 0))
+        if (!entityId(logId)) p.add("log_id", "invalid id")
+        val goalId = toStringCell(cellAt(row, 1))
+        if (!entityId(goalId)) p.add("goal_id", "invalid id")
+        var segments: List<Segment> = emptyList()
+        try {
+            segments = decodeSegments(toStringCell(cellAt(row, 2)))
+            if (segments.isEmpty()) p.add("segments", "an active timer needs at least one segment")
+        } catch (e: Exception) {
+            p.add("segments", e.message ?: "malformed")
+        }
+        val note = toStringCell(cellAt(row, 3))
+        val updatedAt = toStringCell(cellAt(row, 4))
+        if (!isoUtc(updatedAt)) p.add("updated_at", "must be an ISO-8601 UTC instant")
+        p.failIfAny()
+        ActiveTimer(
+            logId = logId,
+            goalId = goalId,
+            segments = segments,
+            note = note,
+            updatedAt = updatedAt,
+            deleted = toBoolean(cellAt(row, 5)),
+            deviceId = toStringCell(cellAt(row, 6)),
         )
     }
 }

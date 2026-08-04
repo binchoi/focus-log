@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { SheetsClient } from "../sheets/client";
-import { GOAL_COLUMNS, META_COLUMNS, RANGES, SESSION_COLUMNS, headerRow } from "../sheets/columns";
+import {
+  GOAL_COLUMNS,
+  META_COLUMNS,
+  RANGES,
+  SCHEMA_VERSION,
+  SESSION_COLUMNS,
+  headerRow,
+} from "../sheets/columns";
 import { validateConnection, type ValidationReport } from "./validate";
 
 const VALID_ID = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
@@ -19,7 +26,7 @@ function clientFor(options: FakeOptions = {}): SheetsClient {
     tabs = ["goals", "sessions", "meta"],
     goalHeader = headerRow(GOAL_COLUMNS),
     sessionHeader = headerRow(SESSION_COLUMNS),
-    metaRows = [headerRow(META_COLUMNS), ["schema_version", 1]],
+    metaRows = [headerRow(META_COLUMNS), ["schema_version", SCHEMA_VERSION]],
     status,
     networkError,
   } = options;
@@ -137,11 +144,14 @@ describe("validateConnection", () => {
     expect(find(report, "Schema version").fix).toMatch(/Update focus-log/);
   });
 
-  it("refuses an outdated spreadsheet and points at the template", async () => {
+  it("warns about an outdated spreadsheet but still proceeds", async () => {
+    // An older sheet keeps working; newer features just stay off until it's
+    // migrated, so this is a warning rather than a refusal.
     const report = await validateConnection(
-      clientFor({ metaRows: [headerRow(META_COLUMNS), ["schema_version", 0]] }),
+      clientFor({ metaRows: [headerRow(META_COLUMNS), ["schema_version", 1]] }),
     );
-    expect(report.ok).toBe(false);
+    expect(report.ok).toBe(true);
+    expect(find(report, "Schema version").status).toBe("warning");
     expect(find(report, "Schema version").fix).toMatch(/Re-import the CSV template/);
   });
 
@@ -161,7 +171,9 @@ describe("validateConnection", () => {
         const url = new URL(String(input));
         if (!url.pathname.endsWith(":batchGet")) {
           return new Response(
-            JSON.stringify({ sheets: ["goals", "sessions", "meta"].map((t) => ({ properties: { title: t } })) }),
+            JSON.stringify({
+              sheets: ["goals", "sessions", "meta"].map((t) => ({ properties: { title: t } })),
+            }),
             { status: 200, headers: { "content-type": "application/json" } },
           );
         }
@@ -173,7 +185,7 @@ describe("validateConnection", () => {
                   ? [headerRow(GOAL_COLUMNS), ["g1"], ["g2"]]
                   : range === RANGES.sessions
                     ? [headerRow(SESSION_COLUMNS), ["s1"]]
-                    : [headerRow(META_COLUMNS), ["schema_version", 1]],
+                    : [headerRow(META_COLUMNS), ["schema_version", SCHEMA_VERSION]],
             })),
           }),
           { status: 200, headers: { "content-type": "application/json" } },

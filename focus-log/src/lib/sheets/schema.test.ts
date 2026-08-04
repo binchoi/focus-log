@@ -2,14 +2,20 @@ import { describe, expect, it } from "vitest";
 import { columnLetter, fullRange, headerRow, GOAL_COLUMNS, SESSION_COLUMNS } from "./columns";
 import { toBoolean, toNumber } from "./cells";
 import {
+  activeToRow,
+  decodeSegments,
+  encodeSegments,
   goalToRow,
+  parseActiveRows,
   parseGoalRows,
   parseMetaRows,
   parseSessionRows,
   sessionToRow,
+  type ActiveTimer,
   type Goal,
   type Session,
 } from "./schema";
+import { ACTIVE_COLUMNS } from "./columns";
 
 const SESSION_HEADER = headerRow(SESSION_COLUMNS);
 const GOAL_HEADER = headerRow(GOAL_COLUMNS);
@@ -248,5 +254,84 @@ describe("meta rows", () => {
     expect(parseMetaRows([])).toEqual({});
     expect(parseMetaRows(undefined)).toEqual({});
     expect(parseMetaRows(null)).toEqual({});
+  });
+});
+
+describe("segments codec", () => {
+  it("round-trips a running timer with a pause", () => {
+    const segments = [
+      { start: 1_700_000_000_000, end: 1_700_000_060_000 }, // a closed interval
+      { start: 1_700_000_120_000, end: null }, // still running
+    ];
+    const encoded = encodeSegments(segments);
+    expect(encoded).toBe("1700000000000,1700000060000;1700000120000,");
+    expect(decodeSegments(encoded)).toEqual(segments);
+  });
+
+  it("treats a blank cell as no segments", () => {
+    expect(decodeSegments("")).toEqual([]);
+    expect(decodeSegments("   ")).toEqual([]);
+    expect(encodeSegments([])).toBe("");
+  });
+
+  it("rejects malformed segments", () => {
+    expect(() => decodeSegments("abc,123")).toThrow();
+    expect(() => decodeSegments("1700000000000")).toThrow(); // missing the comma
+    expect(() => decodeSegments("100,50")).toThrow(); // ends before it starts
+  });
+});
+
+describe("active timer rows", () => {
+  const ACTIVE_HEADER = headerRow(ACTIVE_COLUMNS);
+  const active: ActiveTimer = {
+    log_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    goal_id: "11111111-1111-4111-8111-111111111111",
+    segments: [{ start: 1_700_000_000_000, end: null }],
+    note: "deep work",
+    updated_at: "2026-01-01T00:00:00.000Z",
+    deleted: false,
+    device_id: "dev-abc123",
+  };
+
+  it("serialises in column order, packing segments into one cell", () => {
+    expect(activeToRow(active)).toEqual([
+      active.log_id,
+      active.goal_id,
+      "1700000000000,",
+      "deep work",
+      "2026-01-01T00:00:00.000Z",
+      false,
+      "dev-abc123",
+    ]);
+  });
+
+  it("round-trips through serialise → parse", () => {
+    const result = parseActiveRows([ACTIVE_HEADER, activeToRow(active)]);
+    expect(result.failures).toEqual([]);
+    expect(result.records).toEqual([active]);
+  });
+
+  it("reads a tombstone (a stopped/discarded timer)", () => {
+    const closed = { ...active, deleted: true, updated_at: "2026-01-01T01:00:00.000Z" };
+    const result = parseActiveRows([ACTIVE_HEADER, activeToRow(closed)]);
+    expect(result.records).toEqual([closed]);
+  });
+
+  it("reports a row with no segments instead of showing it", () => {
+    const result = parseActiveRows([
+      ACTIVE_HEADER,
+      [active.log_id, active.goal_id, "", "", active.updated_at, false, "dev-abc123"],
+    ]);
+    expect(result.records).toEqual([]);
+    expect(result.failures[0]?.problems.join(" ")).toMatch(/segment/);
+  });
+
+  it("reports a row with a bad updated_at", () => {
+    const result = parseActiveRows([
+      ACTIVE_HEADER,
+      [active.log_id, active.goal_id, "1700000000000,", "", "not-a-date", false, ""],
+    ]);
+    expect(result.records).toEqual([]);
+    expect(result.failures[0]?.problems.join(" ")).toMatch(/updated_at/);
   });
 });

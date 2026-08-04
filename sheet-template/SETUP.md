@@ -10,10 +10,10 @@ You only do it once.
 3. Copy its ID from the URL — the long string between `/d/` and `/edit`:
    `https://docs.google.com/spreadsheets/d/` **`<THIS PART>`** `/edit`
 
-## 2. Create the three tabs
+## 2. Create the four tabs
 
-You need exactly three tabs, named **`goals`**, **`sessions`** and
-**`meta`** (lowercase).
+You need exactly four tabs, named **`goals`**, **`sessions`**,
+**`meta`** and **`active`** (lowercase).
 
 For each one:
 
@@ -27,8 +27,13 @@ For each one:
 | `goals` | `goals.csv` | `goals!A:J` |
 | `sessions` | `sessions.csv` | `sessions!A:L` |
 | `meta` | `meta.csv` | `meta!A:B` |
+| `active` | `active.csv` | `active!A:G` |
 
-Delete the default `Sheet1` tab once the three exist.
+Delete the default `Sheet1` tab once the four exist.
+
+> **Already have a focus-log sheet from before the cross-device timer?** You only
+> need to add the new bits — see [Migrating an existing sheet](#migrating-an-existing-sheet-v1--v2)
+> at the bottom. Nothing you already have changes.
 
 > The `goals` and `sessions` tabs contain only a header row. That is correct —
 > the app creates your goals and sessions itself. You never need to type into
@@ -105,6 +110,40 @@ Consequence: you will see multiple rows per session if you edit one. Settings �
 |---|---|---|---|
 | A | `key` | string |  |
 | B | `value` | string |  |
+
+### `active`
+
+The **shared running timer**. While a focus session is in progress, the device
+running it writes one row here (keyed by `log_id`); other devices read it to show
+"running since…" and can pause or stop it. When the session is stopped the row is
+tombstoned (`deleted = TRUE`) and the finished session is appended to
+`sessions` under the *same* `log_id`. It is normal for this tab to be
+empty most of the time.
+
+| col | field | type | notes |
+|---|---|---|---|
+| A | `log_id` | string | The session id, minted at start and reused at finalise. |
+| B | `goal_id` | string |  |
+| C | `segments` | string | Focus intervals as `startMs,endMs;…` (open segment ends blank). |
+| D | `note` | string |  |
+| E | `updated_at` | string | ISO-8601 UTC. The last-write-wins key. |
+| F | `deleted` | boolean | Tombstone: TRUE once the timer is stopped or discarded. |
+| G | `device_id` | string | The device the timer is running on; tie-breaker for identical updated_at. |
+
+## Migrating an existing sheet (v1 → v2)
+
+If you set up focus-log before the cross-device timer, your sheet has `goals`,
+`sessions` and `meta` but no `active` tab. To enable the feature:
+
+1. **Add the `active` tab**: create a tab named `active`,
+   select **A1**, **File → Import** → upload `active.csv`, *Replace data at selected
+   cell*.
+2. **Bump the schema version**: on the `meta` tab, change the `schema_version`
+   value from `1` to `2`.
+
+That's it — no existing data changes. Until you do this the app keeps working
+exactly as before; the timer just stays on one device. Repeat for each person's
+spreadsheet (each user has their own).
 
 ## Optional: a human-readable summary tab
 

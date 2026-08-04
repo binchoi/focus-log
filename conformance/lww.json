@@ -1,0 +1,29 @@
+{
+  "description": "pickWinner(a, b): the later updated_at (compared as an instant, not text) wins; equal instants break the tie on the higher device_id; exact ties return a; an unparseable updated_at always loses.",
+  "cases": [
+    {
+      "name": "later instant wins",
+      "a": { "id": "A", "updated_at": "2026-01-01T00:00:00.000Z", "device_id": "dev-a" },
+      "b": { "id": "B", "updated_at": "2026-01-01T00:00:01.000Z", "device_id": "dev-a" },
+      "winner": "b"
+    },
+    {
+      "name": "equal instant across precisions, higher device_id wins",
+      "a": { "id": "A", "updated_at": "2026-01-01T00:00:00Z", "device_id": "dev-a" },
+      "b": { "id": "B", "updated_at": "2026-01-01T00:00:00.000Z", "device_id": "dev-b" },
+      "winner": "b"
+    },
+    {
+      "name": "exact tie returns a",
+      "a": { "id": "A", "updated_at": "2026-01-01T00:00:00.000Z", "device_id": "dev-x" },
+      "b": { "id": "B", "updated_at": "2026-01-01T00:00:00.000Z", "device_id": "dev-x" },
+      "winner": "a"
+    },
+    {
+      "name": "unparseable updated_at loses",
+      "a": { "id": "A", "updated_at": "garbage", "device_id": "dev-z" },
+      "b": { "id": "B", "updated_at": "2020-01-01T00:00:00.000Z", "device_id": "dev-a" },
+      "winner": "b"
+    }
+  ]
+}
