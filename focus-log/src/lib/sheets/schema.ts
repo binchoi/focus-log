@@ -123,6 +123,19 @@ export function encodeSegments(segments: Segment[]): string {
   return segments.map((s) => `${s.start},${s.end ?? ""}`).join(";");
 }
 
+// Only a plain optional-signed integer, matching Kotlin's `String.toLong()`.
+// `Number()` alone would accept "1e3" (→1000) and "0x10", which Kotlin rejects —
+// so the two cores would disagree on whether a hand-edited `segments` cell is
+// valid. Pinned by /conformance/segments-codec.json.
+const SEGMENT_INT = /^[+-]?\d+$/;
+
+function segmentInt(text: string, pair: string): number {
+  if (!SEGMENT_INT.test(text.trim())) {
+    throw new Error(`segment "${pair}" is not epoch-millisecond integers`);
+  }
+  return Number(text);
+}
+
 /** Inverse of {@link encodeSegments}. Throws on a malformed value so the row is reported, not shown. */
 export function decodeSegments(raw: string): Segment[] {
   const trimmed = raw.trim();
@@ -132,12 +145,9 @@ export function decodeSegments(raw: string): Segment[] {
     if (parts.length !== 2) {
       throw new Error(`segment "${pair}" must be a single start,end pair`);
     }
-    const start = Number(parts[0]);
+    const start = segmentInt(parts[0]!, pair);
     const endText = parts[1]!.trim();
-    const end = endText === "" ? null : Number(endText);
-    if (!Number.isInteger(start) || (end !== null && !Number.isInteger(end))) {
-      throw new Error(`segment "${pair}" is not epoch-millisecond integers`);
-    }
+    const end = endText === "" ? null : segmentInt(parts[1]!, pair);
     if (end !== null && end < start) {
       throw new Error(`segment "${pair}" ends before it starts`);
     }
