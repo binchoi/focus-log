@@ -57,7 +57,9 @@ function compareHeader(
   const mismatches: string[] = [];
   want.forEach((name, index) => {
     if (got[index] !== name) {
-      mismatches.push(`column ${String.fromCharCode(65 + index)} should be "${name}", found "${got[index] ?? "(empty)"}"`);
+      mismatches.push(
+        `column ${String.fromCharCode(65 + index)} should be "${name}", found "${got[index] ?? "(empty)"}"`,
+      );
     }
   });
 
@@ -78,7 +80,11 @@ function compareHeader(
     };
   }
 
-  return { label: `Tab "${tab}" header`, status: "ok", detail: `All ${want.length} columns correct.` };
+  return {
+    label: `Tab "${tab}" header`,
+    status: "ok",
+    detail: `All ${want.length} columns correct.`,
+  };
 }
 
 /**
@@ -169,11 +175,14 @@ export async function validateConnection(client: SheetsClient): Promise<Validati
       fix: "Update focus-log before using this spreadsheet.",
     });
   } else if (version < SCHEMA_VERSION) {
+    // An older sheet still works — the app just leaves newer, additive features
+    // (the `active` tab / cross-device timer) off until it is migrated. So this
+    // is a warning, not a blocker.
     checks.push({
       label: "Schema version",
-      status: "error",
-      detail: `This spreadsheet uses schema version ${version}; the app expects ${SCHEMA_VERSION}.`,
-      fix: "Re-import the CSV template to upgrade the spreadsheet.",
+      status: "warning",
+      detail: `This spreadsheet uses schema version ${version}; the app is on ${SCHEMA_VERSION}. It works as-is, but newer features stay disabled.`,
+      fix: "Re-import the CSV template (adds the `active` tab) to enable the cross-device timer.",
     });
   } else {
     checks.push({ label: "Schema version", status: "ok", detail: `Version ${version}.` });

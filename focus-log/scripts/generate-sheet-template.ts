@@ -13,6 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  ACTIVE_COLUMNS,
   GOAL_COLUMNS,
   META_COLUMNS,
   SCHEMA_VERSION,
@@ -61,10 +62,10 @@ You only do it once.
 3. Copy its ID from the URL — the long string between \`/d/\` and \`/edit\`:
    \`https://docs.google.com/spreadsheets/d/\` **\`<THIS PART>\`** \`/edit\`
 
-## 2. Create the three tabs
+## 2. Create the four tabs
 
-You need exactly three tabs, named **\`${TAB_NAMES.goals}\`**, **\`${TAB_NAMES.sessions}\`** and
-**\`${TAB_NAMES.meta}\`** (lowercase).
+You need exactly four tabs, named **\`${TAB_NAMES.goals}\`**, **\`${TAB_NAMES.sessions}\`**,
+**\`${TAB_NAMES.meta}\`** and **\`${TAB_NAMES.active}\`** (lowercase).
 
 For each one:
 
@@ -78,8 +79,13 @@ For each one:
 | \`${TAB_NAMES.goals}\` | \`goals.csv\` | \`${fullRange(TAB_NAMES.goals, GOAL_COLUMNS)}\` |
 | \`${TAB_NAMES.sessions}\` | \`sessions.csv\` | \`${fullRange(TAB_NAMES.sessions, SESSION_COLUMNS)}\` |
 | \`${TAB_NAMES.meta}\` | \`meta.csv\` | \`${fullRange(TAB_NAMES.meta, META_COLUMNS)}\` |
+| \`${TAB_NAMES.active}\` | \`active.csv\` | \`${fullRange(TAB_NAMES.active, ACTIVE_COLUMNS)}\` |
 
-Delete the default \`Sheet1\` tab once the three exist.
+Delete the default \`Sheet1\` tab once the four exist.
+
+> **Already have a focus-log sheet from before the cross-device timer?** You only
+> need to add the new bits — see [Migrating an existing sheet](#migrating-an-existing-sheet-v1--v2)
+> at the bottom. Nothing you already have changes.
 
 > The \`goals\` and \`sessions\` tabs contain only a header row. That is correct —
 > the app creates your goals and sessions itself. You never need to type into
@@ -130,6 +136,32 @@ ${columnTable(SESSION_COLUMNS)}
 
 ${columnTable(META_COLUMNS)}
 
+### \`${TAB_NAMES.active}\`
+
+The **shared running timer**. While a focus session is in progress, the device
+running it writes one row here (keyed by \`log_id\`); other devices read it to show
+"running since…" and can pause or stop it. When the session is stopped the row is
+tombstoned (\`deleted = TRUE\`) and the finished session is appended to
+\`${TAB_NAMES.sessions}\` under the *same* \`log_id\`. It is normal for this tab to be
+empty most of the time.
+
+${columnTable(ACTIVE_COLUMNS)}
+
+## Migrating an existing sheet (v1 → v2)
+
+If you set up focus-log before the cross-device timer, your sheet has \`goals\`,
+\`sessions\` and \`meta\` but no \`active\` tab. To enable the feature:
+
+1. **Add the \`${TAB_NAMES.active}\` tab**: create a tab named \`${TAB_NAMES.active}\`,
+   select **A1**, **File → Import** → upload \`active.csv\`, *Replace data at selected
+   cell*.
+2. **Bump the schema version**: on the \`${TAB_NAMES.meta}\` tab, change the \`schema_version\`
+   value from \`1\` to \`${SCHEMA_VERSION}\`.
+
+That's it — no existing data changes. Until you do this the app keeps working
+exactly as before; the timer just stays on one device. Repeat for each person's
+spreadsheet (each user has their own).
+
 ## Optional: a human-readable summary tab
 
 The app computes all its own totals and never reads this — it exists purely so
@@ -149,6 +181,7 @@ function main(): void {
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, "goals.csv"), csvFor(GOAL_COLUMNS));
   writeFileSync(join(outDir, "sessions.csv"), csvFor(SESSION_COLUMNS));
+  writeFileSync(join(outDir, "active.csv"), csvFor(ACTIVE_COLUMNS));
   writeFileSync(join(outDir, "meta.csv"), metaCsv());
   writeFileSync(join(outDir, "SETUP.md"), setup);
   process.stdout.write(`Wrote sheet template to ${outDir}\n`);

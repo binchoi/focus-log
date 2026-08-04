@@ -181,7 +181,10 @@ class SyncEngine(
 }
 
 fun isSchemaCompatible(remoteVersion: Int?): Boolean =
-    remoteVersion == null || remoteVersion == SCHEMA_VERSION
+    // An older sheet is fine to read and write — the app just leaves newer,
+    // additive features (the `active` tab) off until it is migrated. Only a
+    // *newer* sheet is refused, since writing it could drop unknown columns.
+    remoteVersion == null || remoteVersion <= SCHEMA_VERSION
 
 data class Pulled(val goals: Int, val sessions: Int)
 data class Malformed(val goals: List<ParseFailure>, val sessions: List<ParseFailure>)

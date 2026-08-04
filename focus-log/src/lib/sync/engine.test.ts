@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FocusLogDb, setDbForTests } from "../store/db";
-import { createGoal, deleteSession, listSessions, logSession, pendingCount, updateSession } from "../store/repo";
+import {
+  createGoal,
+  deleteSession,
+  listSessions,
+  logSession,
+  pendingCount,
+  updateSession,
+} from "../store/repo";
 import { SheetsClient, SheetsError } from "../sheets/client";
 import { RANGES } from "../sheets/columns";
 import { headerRow, GOAL_COLUMNS, SESSION_COLUMNS } from "../sheets/columns";
@@ -62,7 +69,10 @@ class FakeSheet {
 
       if (url.pathname.endsWith(":append")) {
         sheet.appendCalls += 1;
-        const body = JSON.parse(String(init?.body ?? "{}")) as { range: string; values: unknown[][] };
+        const body = JSON.parse(String(init?.body ?? "{}")) as {
+          range: string;
+          values: unknown[][];
+        };
         const target = body.range === RANGES.goals ? sheet.goals : sheet.sessions;
         target.push(...body.values);
         if (sheet.swallowNextResponse) {
@@ -381,8 +391,11 @@ describe("pull and merge", () => {
     const sheet = new FakeSheet();
     const engine = new SyncEngine(sheet.client(), { database, now: () => new Date(clock) });
     expect((await engine.sync()).schemaVersion).toBe(1);
+    // Older and current sheets are both compatible (older just leaves newer
+    // features off); only a *newer* sheet is refused.
     expect(isSchemaCompatible(1)).toBe(true);
-    expect(isSchemaCompatible(2)).toBe(false);
+    expect(isSchemaCompatible(2)).toBe(true);
+    expect(isSchemaCompatible(3)).toBe(false);
     expect(isSchemaCompatible(undefined)).toBe(true);
   });
 });

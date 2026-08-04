@@ -1,0 +1,17 @@
+{
+  "description": "The active tab packs the whole interval list into one cell as `startMs,endMs;...`, an open segment leaving its end blank. encode(segments) must equal `encoded`, and decode(`encoded`) must equal `segments`.",
+  "cases": [
+    {
+      "name": "running with a pause",
+      "segments": [[1700000000000, 1700000060000], [1700000120000, null]],
+      "encoded": "1700000000000,1700000060000;1700000120000,"
+    },
+    {
+      "name": "single running segment",
+      "segments": [[1700000000000, null]],
+      "encoded": "1700000000000,"
+    },
+    { "name": "empty", "segments": [], "encoded": "" }
+  ],
+  "invalidEncoded": ["abc,123", "1700000000000", "100,50", "1,2,3", "1e3,2000", "1.5,2000", "0x10,2000"]
+}

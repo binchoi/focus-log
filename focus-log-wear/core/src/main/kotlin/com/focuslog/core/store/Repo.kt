@@ -77,6 +77,11 @@ class Repo(
         note: String = "",
         source: String = "timer",
         durationSecondsOverride: Long? = null,
+        // Reuse a pre-minted id instead of generating one. The cross-device timer
+        // mints the session id at start (on the shared `active` row) and finalises
+        // under it, so two devices ending the same timer produce same-id rows the
+        // reducer collapses. Omitted for ordinary logging, which mints fresh.
+        logId: String? = null,
     ): Session {
         val tz = timeZone()
         val computed = Time.durationSeconds(startMillis, endMillis)
@@ -89,7 +94,7 @@ class Repo(
         val end = if (duration == computed) endMillis else startMillis + duration * 1000L
 
         val session = Session(
-            logId = ids(),
+            logId = logId ?: ids(),
             goalId = goalId,
             startUtc = Time.toIsoUtc(startMillis),
             endUtc = Time.toIsoUtc(end),

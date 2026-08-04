@@ -18,7 +18,10 @@ enum class ColumnType { STRING, NUMBER, BOOLEAN }
 
 data class ColumnDef(val key: String, val type: ColumnType)
 
-const val SCHEMA_VERSION = 1
+// v2 adds the optional `active` tab (cross-device running timer). Backward
+// compatible: a v2 client still reads and writes a v1 sheet, it just leaves the
+// cross-device timer off until the `active` tab is added.
+const val SCHEMA_VERSION = 2
 
 val GOAL_COLUMNS: List<ColumnDef> = listOf(
     ColumnDef("goal_id", ColumnType.STRING),
@@ -53,10 +56,26 @@ val META_COLUMNS: List<ColumnDef> = listOf(
     ColumnDef("value", ColumnType.STRING),
 )
 
+// The shared running timer (v2+): one versioned row per in-progress session,
+// keyed by `log_id`. The id is minted at start and reused at finalise, so two
+// devices ending the same timer append rows with the same id that LWW collapses.
+// `deleted=TRUE` tombstones a stopped/discarded timer; `segments` carries the
+// pause structure so another device shows correct elapsed and can stop it.
+val ACTIVE_COLUMNS: List<ColumnDef> = listOf(
+    ColumnDef("log_id", ColumnType.STRING),
+    ColumnDef("goal_id", ColumnType.STRING),
+    ColumnDef("segments", ColumnType.STRING),
+    ColumnDef("note", ColumnType.STRING),
+    ColumnDef("updated_at", ColumnType.STRING),
+    ColumnDef("deleted", ColumnType.BOOLEAN),
+    ColumnDef("device_id", ColumnType.STRING),
+)
+
 object TabNames {
     const val GOALS = "goals"
     const val SESSIONS = "sessions"
     const val META = "meta"
+    const val ACTIVE = "active"
 }
 
 /** 0 -> "A", 25 -> "Z", 26 -> "AA". */
@@ -81,4 +100,5 @@ object Ranges {
     val goals: String = fullRange(TabNames.GOALS, GOAL_COLUMNS)
     val sessions: String = fullRange(TabNames.SESSIONS, SESSION_COLUMNS)
     val meta: String = fullRange(TabNames.META, META_COLUMNS)
+    val active: String = fullRange(TabNames.ACTIVE, ACTIVE_COLUMNS)
 }

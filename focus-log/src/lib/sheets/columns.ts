@@ -22,7 +22,10 @@ export interface ColumnDef<K extends string = string> {
   readonly note?: string;
 }
 
-export const SCHEMA_VERSION = 1;
+// v2 adds the optional `active` tab (cross-device running timer). It is a
+// *backward-compatible* bump: a v2 client still reads and writes a v1 sheet, it
+// just leaves the cross-device timer disabled until the `active` tab is added.
+export const SCHEMA_VERSION = 2;
 
 export const GOAL_COLUMNS = [
   { key: "goal_id", type: "string", note: "UUIDv4. Stable forever, never reused." },
@@ -38,7 +41,11 @@ export const GOAL_COLUMNS = [
 ] as const satisfies readonly ColumnDef[];
 
 export const SESSION_COLUMNS = [
-  { key: "log_id", type: "string", note: "UUIDv4 minted before the write, so retries are idempotent." },
+  {
+    key: "log_id",
+    type: "string",
+    note: "UUIDv4 minted before the write, so retries are idempotent.",
+  },
   { key: "goal_id", type: "string" },
   { key: "start_utc", type: "string", note: "ISO-8601 UTC" },
   { key: "end_utc", type: "string", note: "ISO-8601 UTC" },
@@ -57,10 +64,43 @@ export const META_COLUMNS = [
   { key: "value", type: "string" },
 ] as const satisfies readonly ColumnDef[];
 
+// The shared running timer (v2+). One versioned row per in-progress session,
+// keyed by `log_id` — the id is minted at *start* and reused when the session is
+// finalised, so two devices ending the same timer append rows with the same id
+// that the LWW reducer collapses (no double-count). `deleted=TRUE` is the
+// tombstone written when the timer is stopped or discarded. `segments` carries
+// the pause structure so another device shows correct elapsed and can stop it.
+export const ACTIVE_COLUMNS = [
+  {
+    key: "log_id",
+    type: "string",
+    note: "The session id, minted at start and reused at finalise.",
+  },
+  { key: "goal_id", type: "string" },
+  {
+    key: "segments",
+    type: "string",
+    note: "Focus intervals as `startMs,endMs;…` (open segment ends blank).",
+  },
+  { key: "note", type: "string" },
+  { key: "updated_at", type: "string", note: "ISO-8601 UTC. The last-write-wins key." },
+  {
+    key: "deleted",
+    type: "boolean",
+    note: "Tombstone: TRUE once the timer is stopped or discarded.",
+  },
+  {
+    key: "device_id",
+    type: "string",
+    note: "The device the timer is running on; tie-breaker for identical updated_at.",
+  },
+] as const satisfies readonly ColumnDef[];
+
 export const TAB_NAMES = {
   goals: "goals",
   sessions: "sessions",
   meta: "meta",
+  active: "active",
 } as const;
 
 export type TabName = (typeof TAB_NAMES)[keyof typeof TAB_NAMES];
@@ -90,4 +130,5 @@ export const RANGES = {
   goals: fullRange(TAB_NAMES.goals, GOAL_COLUMNS),
   sessions: fullRange(TAB_NAMES.sessions, SESSION_COLUMNS),
   meta: fullRange(TAB_NAMES.meta, META_COLUMNS),
+  active: fullRange(TAB_NAMES.active, ACTIVE_COLUMNS),
 } as const;

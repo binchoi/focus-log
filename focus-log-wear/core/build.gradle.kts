@@ -17,4 +17,8 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // The cross-core conformance vectors live at the repo root, one level above
+    // this Gradle build (focus-log-wear/). Pass their location to the test so it
+    // does not depend on the working directory.
+    systemProperty("conformanceDir", rootProject.projectDir.parentFile.resolve("conformance").absolutePath)
 }

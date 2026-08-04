@@ -1,0 +1,11 @@
+{
+  "description": "elapsedSeconds(segments, now): sum of closed intervals + (now - open start), floored to whole seconds; guarded against a backwards clock.",
+  "cases": [
+    { "name": "single running segment", "segments": [[1000, null]], "now": 61000, "expectedSeconds": 60 },
+    { "name": "pause is excluded", "segments": [[0, 60000], [120000, null]], "now": 150000, "expectedSeconds": 90 },
+    { "name": "all closed (paused)", "segments": [[0, 60000]], "now": 999999, "expectedSeconds": 60 },
+    { "name": "floors sub-second", "segments": [[0, 1500]], "now": 1500, "expectedSeconds": 1 },
+    { "name": "backwards clock guarded to zero", "segments": [[10000, null]], "now": 5000, "expectedSeconds": 0 },
+    { "name": "empty is zero", "segments": [], "now": 1000, "expectedSeconds": 0 }
+  ]
+}

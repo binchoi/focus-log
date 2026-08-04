@@ -155,7 +155,8 @@ export class SyncEngine {
     // Only write back what actually changed, so a no-op sync doesn't churn
     // IndexedDB and wake every live query.
     await this.database.transaction("rw", this.database.goals, this.database.sessions, async () => {
-      if (goalMerge.changedLocally.length) await this.database.goals.bulkPut(goalMerge.changedLocally);
+      if (goalMerge.changedLocally.length)
+        await this.database.goals.bulkPut(goalMerge.changedLocally);
       if (sessionMerge.changedLocally.length) {
         await this.database.sessions.bulkPut(sessionMerge.changedLocally);
       }
@@ -187,7 +188,9 @@ export class SyncEngine {
 
     // Goals go first: a session referencing a goal the sheet hasn't seen yet
     // would look like an orphan to anyone reading mid-sync.
-    const goals = await this.pushBatch(goalOps, RANGES.goals, (op) => goalToRow(op.payload as Goal));
+    const goals = await this.pushBatch(goalOps, RANGES.goals, (op) =>
+      goalToRow(op.payload as Goal),
+    );
     const sessions = await this.pushBatch(sessionOps, RANGES.sessions, (op) =>
       sessionToRow(op.payload as Session),
     );
@@ -209,7 +212,8 @@ export class SyncEngine {
       const all = await this.database.outbox.orderBy("op_id").toArray();
       const available = all.filter(
         (op) =>
-          (op.leased_until === undefined || op.leased_until < nowMs) && op.attempts < this.maxAttempts,
+          (op.leased_until === undefined || op.leased_until < nowMs) &&
+          op.attempts < this.maxAttempts,
       );
       if (available.length === 0) return [];
       await this.database.outbox.bulkPut(
@@ -269,7 +273,9 @@ export class SyncEngine {
 }
 
 export function isSchemaCompatible(remoteVersion: number | undefined): boolean {
-  // An older sheet needs migrating; a newer one means another device is ahead
-  // of this build, and writing to it could lose columns we don't know about.
-  return remoteVersion === undefined || remoteVersion === SCHEMA_VERSION;
+  // An older sheet is fine to read and write — the app simply leaves newer,
+  // additive features (the `active` tab) disabled until the sheet is migrated.
+  // A *newer* sheet means another device is ahead of this build, and writing to
+  // it could drop columns we don't know about, so that we still refuse.
+  return remoteVersion === undefined || remoteVersion <= SCHEMA_VERSION;
 }

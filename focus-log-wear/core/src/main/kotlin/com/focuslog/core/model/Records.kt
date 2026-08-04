@@ -46,3 +46,20 @@ data class Session(
     override val deleted: Boolean = false,
     override val deviceId: String = "",
 ) : Versioned
+
+/**
+ * The shared running timer (the `active` tab, v2+). Mirrors the web app's
+ * `ActiveTimer` in `sheets/schema.ts`. [logId] is minted at start and reused when
+ * the session is finalised into a [Session], so two devices ending it collapse to
+ * one row under LWW. [segments] carries the pause structure; [deleted] is the
+ * tombstone written when the timer stops or is discarded.
+ */
+data class ActiveTimer(
+    val logId: String,
+    val goalId: String,
+    val segments: List<com.focuslog.core.timer.Segment>,
+    val note: String = "",
+    override val updatedAt: String,
+    override val deleted: Boolean = false,
+    override val deviceId: String = "",
+) : Versioned
