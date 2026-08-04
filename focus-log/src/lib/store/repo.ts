@@ -107,9 +107,19 @@ export interface LogSessionInput {
    * throttling (C2) could never be corrected.
    */
   durationSecondsOverride?: number;
+  /**
+   * Reuse a pre-minted id instead of generating one. The cross-device timer mints
+   * the session id at *start* (on the shared `active` row) and finalises under it,
+   * so two devices ending the same timer produce same-id rows the reducer
+   * collapses. Omitted for ordinary manual/timer logging, which mints fresh.
+   */
+  logId?: string;
 }
 
-export async function logSession(input: LogSessionInput, context: RepoContext = {}): Promise<Session> {
+export async function logSession(
+  input: LogSessionInput,
+  context: RepoContext = {},
+): Promise<Session> {
   const { database, now, deviceId, timeZone } = ctx(context);
   const tz = timeZone();
 
@@ -128,7 +138,7 @@ export async function logSession(input: LogSessionInput, context: RepoContext = 
   const end = duration === computed ? input.end : new Date(input.start.getTime() + duration * 1000);
 
   const session = SessionSchema.parse({
-    log_id: newId(),
+    log_id: input.logId ?? newId(),
     goal_id: input.goal_id,
     start_utc: toIsoUtc(input.start),
     end_utc: toIsoUtc(end),

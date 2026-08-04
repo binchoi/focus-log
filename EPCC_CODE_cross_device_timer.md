@@ -58,3 +58,33 @@ yet — the `active` tab is defined but not yet read or written by the sync engi
 `sheet-template/SETUP.md` → "Migrating an existing sheet (v1 → v2)". Summary: **nothing is
 required right now** (Phase 0 is backward-compatible and inert); when the feature ships you
 add an `active` tab and set `schema_version=2` on each of your two users' sheets.
+
+---
+
+## Phase 1 — pure-core lifecycle (complete)
+
+**New pure mapping between a running timer and the sheet, in both cores** — the backbone
+that makes "mint the id at start, finalise under it" work:
+- `src/lib/timer/lifecycle.ts` + `core/.../timer/Lifecycle.kt`: `runningActive` /
+  `closedActive` (publish/tombstone the shared `active` row), `finalizedSession` (the
+  finished `Session` under the **reserved `log_id`**, focused-duration only), and
+  `timerFromActive` (rebuild a controllable timer from a pulled row — elapsed always
+  re-derived, never stored).
+- `logSession` gains an additive `logId` option (TS `repo.ts`, Kotlin `Repo.kt`) so
+  finalize reuses the start-minted id instead of generating a fresh one.
+
+**New shared vector** `/conformance/active-mapping.json` (2 cases, incl. a +8 zone crossing
+the date line) — both suites now run **19** identical conformance cases, so the
+active→session mapping and ISO/duration output are provably byte-identical across cores.
+
+**The conflict fix, provable at the pure level**: `lifecycle.test.ts` shows two devices
+stopping the same timer produce sessions with *different* end times/devices but the **same
+`log_id`** — exactly what the LWW reducer collapses to one, no double-count.
+
+**Deliberately deferred to Phase 2** (where sync actually holds the record): adding `logId`
+to the persisted `TimerState`/`ActiveSession` and threading it through `start()` + the
+store. Phase 1 keeps `logId` an explicit parameter of the pure functions, so nothing in the
+running app changed yet.
+
+**Quality**: TS 318 tests, `tsc` + `eslint` clean. Kotlin `:core` 101 tests headless.
+Checkpoint-committed separately from Phase 0.

@@ -13,9 +13,10 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { elapsedSeconds, type Segment } from "./timer/engine";
+import { elapsedSeconds, type Segment, type TimerState } from "./timer/engine";
 import { compareVersions, pickWinner, type Versioned } from "./sync/merge";
 import { decodeSegments, encodeSegments } from "./sheets/schema";
+import { closedActive, finalizedSession, runningActive, timerFromActive } from "./timer/lifecycle";
 
 function loadVectors<T>(file: string): T {
   const path = fileURLToPath(new URL(`../../../conformance/${file}`, import.meta.url));
@@ -76,4 +77,49 @@ describe("conformance: segments codec", () => {
   it.each(invalidEncoded)("rejects %j", (bad) => {
     expect(() => decodeSegments(bad)).toThrow();
   });
+});
+
+describe("conformance: active-timer lifecycle mapping", () => {
+  interface MappingCase {
+    name: string;
+    input: {
+      logId: string;
+      goalId: string;
+      segments: SegPair[];
+      note: string;
+      tz: string;
+      deviceId: string;
+      now: number;
+    };
+    finalizedSession: Record<string, unknown>;
+    activeEncodedSegments: string;
+    activeUpdatedAt: string;
+  }
+  const { cases } = loadVectors<{ cases: MappingCase[] }>("active-mapping.json");
+
+  it.each(cases)(
+    "$name",
+    ({ input, finalizedSession: expected, activeEncodedSegments, activeUpdatedAt }) => {
+      const segments = toSegments(input.segments);
+      const state: TimerState = {
+        goalId: input.goalId,
+        segments,
+        startedAt: segments[0]?.start ?? 0,
+        note: input.note,
+      };
+      const ctx = { logId: input.logId, deviceId: input.deviceId, now: input.now };
+
+      expect(finalizedSession(state, { ...ctx, tz: input.tz })).toEqual(expected);
+
+      const active = runningActive(state, ctx);
+      expect(encodeSegments(active.segments)).toBe(activeEncodedSegments);
+      expect(active.updated_at).toBe(activeUpdatedAt);
+      expect(active.deleted).toBe(false);
+      expect(active.log_id).toBe(input.logId);
+      expect(closedActive(state, ctx).deleted).toBe(true);
+
+      // Round-trip: a device adopting the published row rebuilds the same timer.
+      expect(timerFromActive(active)).toEqual(state);
+    },
+  );
 });

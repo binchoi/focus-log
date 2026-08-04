@@ -1,13 +1,19 @@
 package com.focuslog.core
 
+import com.focuslog.core.model.Session
 import com.focuslog.core.model.Versioned
 import com.focuslog.core.sheets.decodeSegments
 import com.focuslog.core.sheets.encodeSegments
 import com.focuslog.core.sync.compareVersions
 import com.focuslog.core.sync.pickWinner
+import com.focuslog.core.timer.ActiveContext
 import com.focuslog.core.timer.Segment
 import com.focuslog.core.timer.TimerEngine
 import com.focuslog.core.timer.TimerState
+import com.focuslog.core.timer.closedActive
+import com.focuslog.core.timer.finalizedSession
+import com.focuslog.core.timer.runningActive
+import com.focuslog.core.timer.timerFromActive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.DynamicTest
@@ -116,4 +122,57 @@ class ConformanceTest {
         }
         return roundTrips + rejections
     }
+
+    @TestFactory
+    fun activeMapping(): List<DynamicTest> {
+        @Suppress("UNCHECKED_CAST")
+        val cases = load("active-mapping.json")["cases"] as List<Map<String, Any?>>
+        return cases.map { c ->
+            DynamicTest.dynamicTest(c["name"] as String) {
+                @Suppress("UNCHECKED_CAST")
+                val input = c["input"] as Map<String, Any?>
+                val segments = segmentsOf(input["segments"])
+                val state = TimerState(
+                    goalId = input["goalId"] as String,
+                    segments = segments,
+                    startedAt = segments.firstOrNull()?.start ?: 0L,
+                    note = input["note"] as String,
+                )
+                val ctx = ActiveContext(
+                    logId = input["logId"] as String,
+                    deviceId = input["deviceId"] as String,
+                    now = (input["now"] as Double).toLong(),
+                )
+                val tz = input["tz"] as String
+
+                @Suppress("UNCHECKED_CAST")
+                assertEquals(sessionOf(c["finalizedSession"] as Map<String, Any?>), finalizedSession(state, ctx, tz))
+
+                val active = runningActive(state, ctx)
+                assertEquals(c["activeEncodedSegments"] as String, encodeSegments(active.segments))
+                assertEquals(c["activeUpdatedAt"] as String, active.updatedAt)
+                assertEquals(false, active.deleted)
+                assertEquals(input["logId"] as String, active.logId)
+                assertEquals(true, closedActive(state, ctx).deleted)
+
+                // Round-trip: adopting the published row rebuilds the same timer.
+                assertEquals(state, timerFromActive(active))
+            }
+        }
+    }
+
+    private fun sessionOf(m: Map<String, Any?>): Session = Session(
+        logId = m["log_id"] as String,
+        goalId = m["goal_id"] as String,
+        startUtc = m["start_utc"] as String,
+        endUtc = m["end_utc"] as String,
+        durationSeconds = (m["duration_seconds"] as Double).toInt(),
+        localDate = m["local_date"] as String,
+        tz = m["tz"] as String,
+        note = m["note"] as String,
+        source = m["source"] as String,
+        updatedAt = m["updated_at"] as String,
+        deleted = m["deleted"] as Boolean,
+        deviceId = m["device_id"] as String,
+    )
 }
