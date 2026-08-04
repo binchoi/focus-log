@@ -1,9 +1,13 @@
 package com.focuslog.wear
 
 import android.content.Context
+import com.focuslog.core.model.ActiveTimer
 import com.focuslog.core.store.Repo
+import com.focuslog.core.sync.ActiveBridge
 import com.focuslog.core.sync.SyncEngine
+import com.focuslog.core.timer.Reconciliation
 import com.focuslog.wear.data.DeviceId
+import com.focuslog.wear.sync.SyncScheduler
 import com.focuslog.wear.data.auth.GoogleTokenProvider
 import com.focuslog.wear.data.auth.Pem
 import com.focuslog.wear.data.auth.Rs256Signer
@@ -38,7 +42,15 @@ class AppGraph private constructor(context: Context) {
 
     val repo = Repo(store = store, deviceId = { deviceId })
 
-    val timer = TimerController(appContext, db)
+    val timer = TimerController(
+        appContext,
+        db,
+        repo = repo,
+        deviceId = { deviceId },
+        // Publishing the timer schedules a prompt sync so the shared row reaches
+        // other devices without waiting for the periodic worker.
+        requestSync = { if (isConfigured) SyncScheduler.syncNow(appContext) },
+    )
 
     private val http: OkHttpClient = OkHttpClient.Builder()
         .callTimeout(30, TimeUnit.SECONDS)
@@ -49,7 +61,13 @@ class AppGraph private constructor(context: Context) {
         val signer = Rs256Signer(Pem.toPrivateKey(cfg.privateKeyPem))
         val tokens = GoogleTokenProvider(cfg.clientEmail, signer, http)
         val client = OkHttpSheetsClient(cfg.spreadsheetId, tokens, http)
-        SyncEngine(client, store)
+        // The bridge lets pull reconcile the shared `active` tab into the running
+        // timer, so a timer started elsewhere can be adopted and ended here.
+        val bridge = object : ActiveBridge {
+            override suspend fun readLocal(): ActiveTimer? = timer.readActiveForSync()
+            override suspend fun apply(result: Reconciliation) = timer.applyReconciled(result)
+        }
+        SyncEngine(client, store, active = bridge)
     }
 
     val isConfigured: Boolean get() = syncEngine != null

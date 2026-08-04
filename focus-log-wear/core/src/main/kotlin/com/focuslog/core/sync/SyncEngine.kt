@@ -1,12 +1,15 @@
 package com.focuslog.core.sync
 
+import com.focuslog.core.model.ActiveTimer
 import com.focuslog.core.model.Goal
 import com.focuslog.core.model.Session
 import com.focuslog.core.sheets.Cell
 import com.focuslog.core.sheets.Ranges
 import com.focuslog.core.sheets.SheetsClient
 import com.focuslog.core.sheets.SheetsError
+import com.focuslog.core.sheets.activeToRow
 import com.focuslog.core.sheets.goalToRow
+import com.focuslog.core.sheets.parseActiveRows
 import com.focuslog.core.sheets.parseGoalRows
 import com.focuslog.core.sheets.parseMetaRows
 import com.focuslog.core.sheets.parseSessionRows
@@ -18,8 +21,22 @@ import com.focuslog.core.store.OutboxEntity
 import com.focuslog.core.store.OutboxOp
 import com.focuslog.core.store.SyncMetaKeys
 import com.focuslog.core.time.Time
+import com.focuslog.core.timer.Reconciliation
+import com.focuslog.core.timer.reconcileActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+
+/**
+ * Bridges the sync engine to the watch's running timer without coupling it to the
+ * timer store. Pull hands the reconciled result back through [apply].
+ */
+interface ActiveBridge {
+    /** This device's current timer as an `active` record, or null when idle. */
+    suspend fun readLocal(): ActiveTimer?
+
+    /** Persist the reconciliation: adopt/clear the local timer, enqueue any auto-close. */
+    suspend fun apply(result: Reconciliation)
+}
 
 /**
  * Sync orchestrator — a port of `sync/engine.ts`: push, then pull, then merge.
@@ -37,6 +54,8 @@ class SyncEngine(
     private val now: () -> Long = { System.currentTimeMillis() },
     private val leaseMs: Long = 60_000,
     private val maxAttempts: Int = 10,
+    /** Cross-device running timer. Null → the `active` tab is never touched. */
+    private val active: ActiveBridge? = null,
 ) {
     /** Serialises runs so two triggers cannot drain the outbox concurrently. */
     private val runLock = Mutex()
@@ -82,15 +101,29 @@ class SyncEngine(
 
         val goalOps = claimed.filter { it.entity == OutboxEntity.GOAL }
         val sessionOps = claimed.filter { it.entity == OutboxEntity.SESSION }
+        val activeOps = claimed.filter { it.entity == OutboxEntity.ACTIVE }
 
         // Goals go first: a session referencing a goal the sheet hasn't seen yet
         // would look like an orphan to anyone reading mid-sync.
         val goals = pushBatch(goalOps, Ranges.goals) { goalToRow(it.payload as Goal) }
         val sessions = pushBatch(sessionOps, Ranges.sessions) { sessionToRow(it.payload as Session) }
 
-        val pushed = goals.pushed + sessions.pushed
+        // The active timer is a best-effort broadcast, and only a v2 sheet has an
+        // `active` tab. Gate on the schema version learned by the last pull so a
+        // v1 sheet is never even asked to append it (which would 400). If the
+        // sheet can't hold it, drop the ops; the timer re-publishes on its next
+        // change once we know the sheet is v2.
+        val cachedSchema = store.getMeta(SyncMetaKeys.SCHEMA_VERSION)?.toIntOrNull()
+        val active = if (cachedSchema != null && cachedSchema >= 2) {
+            pushBatch(activeOps, Ranges.active, dropOnFatal = true) { activeToRow(it.payload as ActiveTimer) }
+        } else {
+            if (activeOps.isNotEmpty()) store.outboxDelete(activeOps.mapNotNull { it.opId })
+            BatchResult(0, null)
+        }
+
+        val pushed = goals.pushed + sessions.pushed + active.pushed
         if (pushed > 0) setMeta(SyncMetaKeys.LAST_PUSH_AT, Time.toIsoUtc(now()))
-        return PushOutcome(pushed, goals.deferredReason ?: sessions.deferredReason)
+        return PushOutcome(pushed, goals.deferredReason ?: sessions.deferredReason ?: active.deferredReason)
     }
 
     /**
@@ -116,17 +149,27 @@ class SyncEngine(
     private suspend fun pushBatch(
         ops: List<OutboxOp>,
         range: String,
+        dropOnFatal: Boolean = false,
         toRow: (OutboxOp) -> List<Cell>,
     ): BatchResult {
         if (ops.isEmpty()) return BatchResult(0, null)
         try {
             client.append(range, ops.map(toRow))
         } catch (error: SheetsError) {
-            releaseWithError(ops, error)
             // Retryable (offline, 429, 5xx) is expected, not exceptional: the ops
-            // stay queued and the next trigger picks them up. Anything else is a
-            // real misconfiguration the caller must surface.
-            if (error.retryable) return BatchResult(0, error.message)
+            // stay queued and the next trigger picks them up.
+            if (error.retryable) {
+                releaseWithError(ops, error)
+                return BatchResult(0, error.message)
+            }
+            // Non-retryable: for best-effort entities (the active timer) the sheet
+            // simply can't hold the row — drop the ops rather than wedge the queue.
+            // For durable entities it is a real misconfiguration: surface it.
+            if (dropOnFatal) {
+                store.outboxDelete(ops.mapNotNull { it.opId })
+                return BatchResult(0, null)
+            }
+            releaseWithError(ops, error)
             throw error
         }
         // Confirmed appended: only now is it safe to forget the op.
@@ -165,6 +208,11 @@ class SyncEngine(
             if (sessionMerge.changedLocally.isNotEmpty()) store.putSessions(sessionMerge.changedLocally)
         }
 
+        // Cache the schema so push (which runs before pull) knows whether the
+        // `active` tab exists without an extra round-trip.
+        setMeta(SyncMetaKeys.SCHEMA_VERSION, schemaVersion?.toString() ?: "")
+        reconcileActiveTimer(schemaVersion)
+
         setMeta(SyncMetaKeys.LAST_PULL_AT, Time.toIsoUtc(now()))
 
         return PullResult(
@@ -172,6 +220,22 @@ class SyncEngine(
             malformed = Malformed(remoteGoals.failures, remoteSessions.failures),
             schemaVersion = schemaVersion,
         )
+    }
+
+    /**
+     * Pull the `active` tab and reconcile it into the watch's running timer. Only
+     * on a v2+ sheet with a bridge wired — a v1 sheet has no `active` tab, so the
+     * cross-device timer is simply off. Reconcile is idempotent, so the bridge can
+     * safely skip a stale write.
+     */
+    private suspend fun reconcileActiveTimer(schemaVersion: Int?) {
+        val bridge = active ?: return
+        if (schemaVersion == null || schemaVersion < 2) return
+
+        val rows = client.readActive() ?: return // tab absent → feature off.
+        val remote = reduceLatest(parseActiveRows(rows).records) { it.logId }.values.toList()
+        val result = reconcileActive(bridge.readLocal(), remote)
+        if (result.changed || result.closeLogId != null) bridge.apply(result)
     }
 
     /** Ops that exhausted their retries and need the user to intervene. */

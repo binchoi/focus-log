@@ -38,7 +38,7 @@ interface LocalStore {
     suspend fun <T> transaction(block: suspend () -> T): T
 }
 
-enum class OutboxEntity { GOAL, SESSION }
+enum class OutboxEntity { GOAL, SESSION, ACTIVE }
 
 /**
  * A pending mutation waiting to reach the spreadsheet. The payload is the full
