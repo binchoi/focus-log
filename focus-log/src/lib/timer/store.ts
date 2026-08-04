@@ -26,6 +26,7 @@ function toTimerState(row: ActiveSession | undefined): TimerState | undefined {
     segments: row.segments,
     startedAt: row.started_at,
     note: row.note,
+    logId: row.log_id,
   };
 }
 
@@ -38,6 +39,7 @@ function toRow(state: TimerState, now: number): ActiveSession {
     note: state.note,
     device_id: getDeviceId(),
     updated_at: now,
+    log_id: state.logId,
   };
 }
 

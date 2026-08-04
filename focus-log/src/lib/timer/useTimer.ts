@@ -15,6 +15,7 @@ import {
   type TimerState,
 } from "./engine";
 import { timerStore, type TimerStore } from "./store";
+import { newId } from "../store/ids";
 
 export interface UseTimerResult {
   phase: TimerPhase;
@@ -46,7 +47,10 @@ export interface UseTimerResult {
  * Unlike the old implementation, the interval is cleared on unmount and when the
  * timer stops, so navigating away no longer leaks it (C5).
  */
-export function useTimer(goalId: string | undefined, store: TimerStore = timerStore()): UseTimerResult {
+export function useTimer(
+  goalId: string | undefined,
+  store: TimerStore = timerStore(),
+): UseTimerResult {
   // The running session is external state (IndexedDB, shared across tabs), so it
   // is read through useSyncExternalStore rather than mirrored into useState.
   const state = useSyncExternalStore(
@@ -110,7 +114,9 @@ export function useTimer(goalId: string | undefined, store: TimerStore = timerSt
     const current = await store.read();
     if (current && current.goalId !== goalId) return;
     const at = Date.now();
-    await store.write(startTimer(goalId, at), at);
+    // Mint the session id at start; the shared `active` row and the finalised
+    // session both use it, so stopping from another device collapses to one row.
+    await store.write(startTimer(goalId, at, "", newId()), at);
     setWarning(undefined);
   }, [goalId, store]);
 

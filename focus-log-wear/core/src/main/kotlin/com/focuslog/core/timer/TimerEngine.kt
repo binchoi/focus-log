@@ -53,8 +53,8 @@ object TimerEngine {
         return Math.floorDiv(totalMs, 1000L)
     }
 
-    fun start(goalId: String, now: Long, note: String = ""): TimerState =
-        TimerState(goalId, listOf(Segment(now, null)), startedAt = now, note = note)
+    fun start(goalId: String, now: Long, note: String = "", logId: String? = null): TimerState =
+        TimerState(goalId, listOf(Segment(now, null)), startedAt = now, note = note, logId = logId)
 
     /** Closes the open segment. No-op if already paused. */
     fun pause(state: TimerState, now: Long): TimerState {
@@ -139,6 +139,12 @@ data class TimerState(
     val segments: List<Segment>,
     val startedAt: Long,
     val note: String,
+    /**
+     * The session id, minted at start and reused at finalise so a timer stopped
+     * from another device collapses to one row under LWW. Null for timers started
+     * before this existed (or in pure-math tests); they don't sync until restarted.
+     */
+    val logId: String? = null,
 )
 
 enum class TimerPhase { IDLE, RUNNING, PAUSED }

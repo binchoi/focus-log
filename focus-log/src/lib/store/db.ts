@@ -37,6 +37,12 @@ export interface ActiveSession {
   note: string;
   device_id: string;
   updated_at: number;
+  /**
+   * The session id, minted at start and reused at finalise so the shared `active`
+   * row and the eventual `session` row share one id. Optional so a row written by
+   * an older build still loads (it just won't sync cross-device until restarted).
+   */
+  log_id?: string;
 }
 
 export interface StoredCredentials {

@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { BarChart3, Gauge, Pause, Play, Plus, Search, Settings, Square } from "lucide-react";
 import { listGoals } from "@lib/store/repo";
+import { newId } from "@lib/store/ids";
 import { formatTotal } from "@lib/time";
 import { timerStore } from "@lib/timer/store";
 import { pause, phaseOf, resume, start as startSession } from "@lib/timer/engine";
@@ -91,9 +92,10 @@ export function CommandPalette() {
       list.push({
         id: `focus-${goal.goal_id}`,
         label: isActive ? `Open ${goal.title}` : `Focus on ${goal.title}`,
-        hint: goal.weekly_target_minutes > 0
-          ? `${formatTotal(goal.weekly_target_minutes * 60)}/week target`
-          : undefined,
+        hint:
+          goal.weekly_target_minutes > 0
+            ? `${formatTotal(goal.weekly_target_minutes * 60)}/week target`
+            : undefined,
         group: "Focus",
         icon: Play,
         colour: goalColor(goal.goal_id, goal.color),
@@ -105,7 +107,7 @@ export function CommandPalette() {
             return;
           }
           const at = Date.now();
-          await store.write(startSession(goal.goal_id, at), at);
+          await store.write(startSession(goal.goal_id, at, "", newId()), at);
           router.push(`/goal/${goal.goal_id}`);
         },
       });
@@ -121,9 +123,27 @@ export function CommandPalette() {
 
     list.push(
       { id: "go-today", label: "Today", group: "Go", icon: Gauge, run: () => router.push("/") },
-      { id: "go-stats", label: "Insights", group: "Go", icon: BarChart3, run: () => router.push("/stats") },
-      { id: "go-settings", label: "Settings", group: "Go", icon: Settings, run: () => router.push("/settings") },
-      { id: "go-new-goal", label: "Add a goal", group: "Go", icon: Plus, run: () => router.push("/settings") },
+      {
+        id: "go-stats",
+        label: "Insights",
+        group: "Go",
+        icon: BarChart3,
+        run: () => router.push("/stats"),
+      },
+      {
+        id: "go-settings",
+        label: "Settings",
+        group: "Go",
+        icon: Settings,
+        run: () => router.push("/settings"),
+      },
+      {
+        id: "go-new-goal",
+        label: "Add a goal",
+        group: "Go",
+        icon: Plus,
+        run: () => router.push("/settings"),
+      },
     );
 
     return list;
@@ -235,9 +255,7 @@ export function CommandPalette() {
         </div>
 
         {filtered.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-cream-600">
-            Nothing matches “{query}”.
-          </p>
+          <p className="px-4 py-8 text-center text-sm text-cream-600">Nothing matches “{query}”.</p>
         ) : (
           <ul
             id="palette-list"
@@ -283,7 +301,9 @@ export function CommandPalette() {
                     )}
                     <span className="min-w-0 flex-1 truncate">{command.label}</span>
                     {command.hint && (
-                      <span className="shrink-0 truncate text-xs text-cream-600">{command.hint}</span>
+                      <span className="shrink-0 truncate text-xs text-cream-600">
+                        {command.hint}
+                      </span>
                     )}
                   </div>
                 </li>

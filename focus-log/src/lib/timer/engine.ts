@@ -29,6 +29,13 @@ export interface TimerState {
   segments: Segment[];
   startedAt: number;
   note: string;
+  /**
+   * The session id, minted at start and reused when the session is finalised, so
+   * a timer stopped from another device collapses to one row under LWW. Optional
+   * because timers started before this existed (or in pure-math tests) carry
+   * none — they simply don't sync until restarted.
+   */
+  logId?: string;
 }
 
 export type TimerPhase = "idle" | "running" | "paused";
@@ -62,8 +69,8 @@ export function elapsedSeconds(state: TimerState | undefined, now: number): numb
   return Math.floor(total / 1000);
 }
 
-export function start(goalId: string, now: number, note = ""): TimerState {
-  return { goalId, segments: [{ start: now, end: null }], startedAt: now, note };
+export function start(goalId: string, now: number, note = "", logId?: string): TimerState {
+  return { goalId, segments: [{ start: now, end: null }], startedAt: now, note, logId };
 }
 
 /** Closes the open segment. No-op if already paused. */
