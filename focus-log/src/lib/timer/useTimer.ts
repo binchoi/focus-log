@@ -30,8 +30,10 @@ export interface UseTimerResult {
   start: () => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
-  /** Ends the timer and returns what to log. Does not write to the store. */
-  stop: () => Promise<{ start: Date; end: Date; seconds: number; note: string } | undefined>;
+  /** Ends the timer and returns what to log (incl. the reserved id). Does not write to the store. */
+  stop: () => Promise<
+    { start: Date; end: Date; seconds: number; note: string; logId?: string } | undefined
+  >;
   discard: () => Promise<void>;
   setNote: (note: string) => Promise<void>;
 }
@@ -140,7 +142,9 @@ export function useTimer(
     // the caller has committed or explicitly discarded it, so a crash mid-dialog
     // cannot lose it.
     await store.write(pause(state, Date.now()), Date.now());
-    return result;
+    // Carry the reserved id so the finalised session reuses it — that is what
+    // lets a timer stopped from another device collapse to one row.
+    return { ...result, logId: state.logId };
   }, [state, belongsToThisGoal, store]);
 
   const discard = useCallback(async () => {

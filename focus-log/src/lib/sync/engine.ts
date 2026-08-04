@@ -183,6 +183,12 @@ export class SyncEngine {
     });
 
     const resolvedSchema = Number.isFinite(schemaVersion) ? schemaVersion : undefined;
+    // Cache the sheet's schema so push (which runs before pull) knows whether the
+    // `active` tab exists without an extra round-trip.
+    await this.setMeta(
+      SYNC_META_KEYS.schemaVersion,
+      resolvedSchema === undefined ? "" : String(resolvedSchema),
+    );
     await this.reconcileActiveTimer(resolvedSchema);
 
     await this.setMeta(SYNC_META_KEYS.lastPullAt, this.now().toISOString());
@@ -237,15 +243,26 @@ export class SyncEngine {
     const sessions = await this.pushBatch(sessionOps, RANGES.sessions, (op) =>
       sessionToRow(op.payload as Session),
     );
-    // The active timer is a best-effort, ephemeral broadcast: if the sheet can't
-    // hold it (a v1 sheet has no `active` tab → a non-retryable 400), drop the
-    // ops rather than wedge the queue. Offline/429/5xx still defer as usual.
-    const active = await this.pushBatch(
-      activeOps,
-      RANGES.active,
-      (op) => activeToRow(op.payload as ActiveTimer),
-      { dropOnFatal: true },
+    // The active timer is a best-effort broadcast, and only a v2 sheet has an
+    // `active` tab. Gate on the schema version learned by the last pull so a v1
+    // sheet is never even *asked* to append it — appending would 400, which the
+    // browser logs as a console error even though we'd drop it. If the sheet
+    // can't hold the timer, drop the ops silently; the running timer re-publishes
+    // on its next change once we know the sheet is v2.
+    const cachedSchema = Number(
+      (await this.database.syncMeta.get(SYNC_META_KEYS.schemaVersion))?.value,
     );
+    let active: { pushed: number; deferredReason?: string } = { pushed: 0 };
+    if (Number.isFinite(cachedSchema) && cachedSchema >= 2) {
+      active = await this.pushBatch(
+        activeOps,
+        RANGES.active,
+        (op) => activeToRow(op.payload as ActiveTimer),
+        { dropOnFatal: true },
+      );
+    } else if (activeOps.length > 0) {
+      await this.database.outbox.bulkDelete(activeOps.map((op) => op.op_id!));
+    }
 
     const pushed = goals.pushed + sessions.pushed + active.pushed;
     if (pushed > 0) await this.setMeta(SYNC_META_KEYS.lastPushAt, this.now().toISOString());

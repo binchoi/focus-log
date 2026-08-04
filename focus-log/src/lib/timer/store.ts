@@ -13,7 +13,10 @@
 
 import { db, type ActiveSession, type FocusLogDb } from "../store/db";
 import { getDeviceId } from "../store/ids";
+import { enqueueActive } from "../store/repo";
+import type { ActiveTimer } from "../sheets/schema";
 import type { TimerState } from "./engine";
+import { closedActive, runningActive } from "./lifecycle";
 
 const CHANNEL_NAME = "focus-log.timer";
 
@@ -40,6 +43,20 @@ function toRow(state: TimerState, now: number): ActiveSession {
     device_id: getDeviceId(),
     updated_at: now,
     log_id: state.logId,
+  };
+}
+
+/** Adopt a shared `active` row (pulled from the sheet) as the local timer. */
+function rowFromActive(active: ActiveTimer): ActiveSession {
+  return {
+    id: "current",
+    goal_id: active.goal_id,
+    segments: active.segments,
+    started_at: active.segments[0]?.start ?? 0,
+    note: active.note,
+    device_id: active.device_id,
+    updated_at: Date.parse(active.updated_at),
+    log_id: active.log_id,
   };
 }
 
@@ -87,13 +104,48 @@ export class TimerStore {
 
   async write(state: TimerState, now: number): Promise<void> {
     await this.database.activeSession.put(toRow(state, now));
+    // Publish the running/paused timer so other devices can see and control it.
+    // Only when it carries a shared id (a timer started before this existed, or
+    // a pure-math test, simply doesn't sync).
+    if (state.logId) {
+      await enqueueActive(
+        runningActive(state, { logId: state.logId, deviceId: getDeviceId(), now }),
+        { database: this.database },
+      );
+    }
     this.setCurrent(state);
     this.broadcast();
   }
 
   async clear(): Promise<void> {
+    // Publish a tombstone so other devices learn the timer stopped/was discarded.
+    const row = await this.database.activeSession.get("current");
+    if (row?.log_id) {
+      const state = toTimerState(row)!;
+      await enqueueActive(
+        closedActive(state, { logId: row.log_id, deviceId: getDeviceId(), now: Date.now() }),
+        { database: this.database },
+      );
+    }
     await this.database.activeSession.delete("current");
     this.setCurrent(undefined);
+    this.broadcast();
+  }
+
+  /**
+   * Adopt a reconciled shared timer from a pull — set the local timer to match
+   * the sheet *without* re-publishing (we are mirroring, not authoring). Passing
+   * `undefined` clears it (another device stopped it).
+   */
+  async setLocal(active: ActiveTimer | undefined): Promise<void> {
+    if (active === undefined) {
+      await this.database.activeSession.delete("current");
+      this.setCurrent(undefined);
+    } else {
+      const row = rowFromActive(active);
+      await this.database.activeSession.put(row);
+      this.setCurrent(toTimerState(row));
+    }
     this.broadcast();
   }
 

@@ -3,6 +3,7 @@ import { FocusLogDb, setDbForTests } from "../store/db";
 import {
   createGoal,
   deleteSession,
+  enqueueActive,
   listSessions,
   logSession,
   pendingCount,
@@ -570,7 +571,7 @@ describe("cross-device active timer", () => {
     return { bridge, applied };
   };
 
-  const enqueueActive = (t: ActiveTimer) =>
+  const queueActiveOp = (t: ActiveTimer) =>
     database.outbox.add({
       entity: "active",
       entity_id: t.log_id,
@@ -581,7 +582,9 @@ describe("cross-device active timer", () => {
 
   it("pushes the active row to the active tab on a v2 sheet", async () => {
     const sheet = new FakeSheet().useV2();
-    await enqueueActive(timer("L-mine"));
+    // push() runs before pull(), so it reads the schema cached by a prior pull.
+    await database.syncMeta.put({ key: "schema_version", value: "2" });
+    await queueActiveOp(timer("L-mine"));
     const { bridge } = makeBridge(undefined);
     const engine = new SyncEngine(sheet.client(), {
       database,
@@ -615,7 +618,7 @@ describe("cross-device active timer", () => {
   it("stays off on a v1 sheet: never reconciles, and drops a stray active op", async () => {
     const sheet = new FakeSheet(); // schema_version 1
     sheet.hasActiveTab = false;
-    await enqueueActive(timer("L-mine"));
+    await queueActiveOp(timer("L-mine"));
     const { bridge, applied } = makeBridge(timer("L-mine"));
 
     const engine = new SyncEngine(sheet.client(), {
@@ -629,6 +632,24 @@ describe("cross-device active timer", () => {
     expect(result.deferred).toBe(false);
     // The undeliverable active op is dropped, not left wedged as "stuck".
     expect(await database.outbox.count()).toBe(0);
+  });
+
+  it("does not collapse a session and an active row that share a log_id", async () => {
+    // Finalising a timer queues a session AND an active tombstone under the SAME
+    // log_id. Collapsing by entity_id alone would delete the session before it is
+    // pushed — the exact bug that made a stopped cross-device timer log nothing.
+    const shared = "shared-log-abc123";
+    await database.outbox.add({
+      entity: "session",
+      entity_id: shared,
+      payload: { log_id: shared, updated_at: "2026-07-29T10:00:00.000Z" } as never,
+      created_at: "2026-07-29T10:00:00.000Z",
+      attempts: 0,
+    });
+    await enqueueActive(timer(shared, { deleted: true }), { database });
+
+    const entities = (await database.outbox.toArray()).map((o) => o.entity).sort();
+    expect(entities).toEqual(["active", "session"]);
   });
 
   it("degrades gracefully when a v2 sheet is missing the active tab", async () => {

@@ -38,6 +38,16 @@ export const SESSION_HEADER = [
   "device_id",
 ];
 
+export const ACTIVE_HEADER = [
+  "log_id",
+  "goal_id",
+  "segments",
+  "note",
+  "updated_at",
+  "deleted",
+  "device_id",
+];
+
 export interface FakeSheetOptions {
   /** Break a header so setup validation has something to reject. */
   corruptSessionHeader?: boolean;
@@ -50,19 +60,42 @@ export interface FakeSheetOptions {
    * "write landed, reply lost" case that idempotency has to survive.
    */
   swallowAppendResponses?: boolean;
+  /** Enable the v2 `active` tab (cross-device timer). */
+  v2?: boolean;
 }
 
 export class FakeSheet {
   goals: unknown[][] = [GOAL_HEADER];
   sessions: unknown[][] = [SESSION_HEADER];
-  meta: unknown[][] = [
-    ["key", "value"],
-    ["schema_version", 1],
-  ];
+  active: unknown[][] = [ACTIVE_HEADER];
+  meta: unknown[][];
   appendCalls = 0;
   tokenCalls = 0;
 
-  constructor(private readonly options: FakeSheetOptions = {}) {}
+  constructor(private readonly options: FakeSheetOptions = {}) {
+    this.meta = [
+      ["key", "value"],
+      ["schema_version", options.v2 ? 2 : 1],
+    ];
+  }
+
+  private get v2(): boolean {
+    return this.options.v2 === true;
+  }
+
+  /** Live (non-tombstoned) active-timer rows reduced by last-write-wins. */
+  liveActive(): Record<string, string>[] {
+    const latest = new Map<string, Record<string, string>>();
+    for (const row of this.active.slice(1)) {
+      const record: Record<string, string> = {};
+      ACTIVE_HEADER.forEach((key, i) => (record[key] = String(row[i] ?? "")));
+      const existing = latest.get(record.log_id!);
+      if (!existing || Date.parse(record.updated_at!) >= Date.parse(existing.updated_at!)) {
+        latest.set(record.log_id!, record);
+      }
+    }
+    return [...latest.values()].filter((r) => r.deleted !== "true" && r.deleted !== "TRUE");
+  }
 
   /** Rows reduced by last-write-wins, as the app would see them. */
   liveSessions(): Record<string, string>[] {
@@ -102,9 +135,21 @@ export class FakeSheet {
     const json = (body: unknown) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
 
+    // A v1 sheet has no `active` tab: Google 400s any read/write of it.
+    const missingActive = (range: string) => range.startsWith("active") && !this.v2;
+    const badRange = () =>
+      route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({ error: { code: 400, message: "Unable to parse range: active" } }),
+      });
+
     // Spreadsheet metadata (tab listing) for connection validation.
-    if (url.pathname.endsWith(`/${SHEET_ID}`) || url.searchParams.get("fields")?.includes("sheets")) {
-      const tabs = ["goals", "sessions", "meta"].filter(
+    if (
+      url.pathname.endsWith(`/${SHEET_ID}`) ||
+      url.searchParams.get("fields")?.includes("sheets")
+    ) {
+      const tabs = ["goals", "sessions", "meta", ...(this.v2 ? ["active"] : [])].filter(
         (t) => !(this.options.missingTabs ?? []).includes(t),
       );
       return json({ sheets: tabs.map((title) => ({ properties: { title } })) });
@@ -112,9 +157,11 @@ export class FakeSheet {
 
     if (url.pathname.endsWith(":batchGet")) {
       const ranges = url.searchParams.getAll("ranges");
+      if (ranges.some(missingActive)) return badRange();
       return json({
         valueRanges: ranges.map((range) => {
           if (range.startsWith("goals")) return { values: this.goals };
+          if (range.startsWith("active")) return { values: this.active };
           if (range.startsWith("sessions")) {
             const rows = [...this.sessions];
             if (this.options.corruptSessionHeader) {
@@ -128,12 +175,17 @@ export class FakeSheet {
     }
 
     if (url.pathname.endsWith(":append")) {
-      this.appendCalls += 1;
       const body = JSON.parse(request.postData() ?? "{}") as {
         range: string;
         values: unknown[][];
       };
-      const target = body.range.startsWith("goals") ? this.goals : this.sessions;
+      if (missingActive(body.range)) return badRange();
+      this.appendCalls += 1;
+      const target = body.range.startsWith("goals")
+        ? this.goals
+        : body.range.startsWith("active")
+          ? this.active
+          : this.sessions;
       target.push(...body.values);
       if (this.options.swallowAppendResponses) {
         // Row is durably stored; the client never learns that.
@@ -228,7 +280,9 @@ export async function openFirstGoal(page: Page): Promise<void> {
   // Target the card's primary action by href, so it cannot match the rail or
   // the "See all insights" link.
   await page.locator('a[href^="/goal/"]:not([href$="/stats"])').first().click();
-  await page.getByRole("button", { name: /start focus|pause|resume/i }).waitFor({ timeout: 15_000 });
+  await page
+    .getByRole("button", { name: /start focus|pause|resume/i })
+    .waitFor({ timeout: 15_000 });
 }
 
 /** Collects console errors and page errors so a test can assert there were none. */
